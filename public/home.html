@@ -163,6 +163,12 @@
       return prefix + number.toString();
     }
 
+    function maskPhoneNumber(phone) {
+      const digits = String(phone).replace(/\D/g, '');
+      if (digits.length < 5) return '0*****';
+      return digits.slice(0, 3) + '*****' + digits.slice(-2);
+    }
+
     function generateLevel() {
       const levels = ['L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'L8', 'L9', 'L10'];
       return levels[Math.floor(Math.random() * levels.length)];
@@ -177,7 +183,7 @@
       slideshow.style.opacity = '0';
       
       setTimeout(() => {
-        slideshow.textContent = `${phone} has activated in ${level}`;
+        slideshow.textContent = `${maskPhoneNumber(phone)} has activated in ${level}`;
         slideshow.style.opacity = '1';
       }, 250);
     }

@@ -164,6 +164,12 @@ async function loadHomeSection() {
     return prefix + number.toString();
   }
 
+  function maskPhoneNumber(phone) {
+    const digits = String(phone).replace(/\D/g, '');
+    if (digits.length < 5) return '0*****';
+    return `${digits.slice(0, 3)}*****${digits.slice(-2)}`;
+  }
+
   function generateLevel() {
     const levels = ['L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'L8', 'L9', 'L10'];
     return levels[Math.floor(Math.random() * levels.length)];
@@ -175,7 +181,7 @@ async function loadHomeSection() {
     const slideshow = document.getElementById('homeSlideshow');
     if (!slideshow) return;
     slideshow.classList.remove('is-in');
-    slideshow.innerHTML = `<span class="act-phone">${phone}</span><span class="act-copy">has activated</span><span class="act-level">${level}</span>`;
+    slideshow.innerHTML = `<span class="act-phone">${maskPhoneNumber(phone)}</span><span class="act-copy">has activated</span><span class="act-level">${level}</span>`;
     void slideshow.offsetWidth;
     slideshow.classList.add('is-in');
   }
