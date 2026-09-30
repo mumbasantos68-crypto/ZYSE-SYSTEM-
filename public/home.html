@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Home - Zambia Youth Self Employment</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .hero-section {
+      text-align: center;
+      padding: 60px 20px;
+      background: linear-gradient(135deg, #007BFF 0%, #0056b3 100%);
+      color: white;
+    }
+    .hero-section h1 {
+      font-size: 3rem;
+      margin-bottom: 10px;
+      color: white;
+    }
+    .hero-section .tagline {
+      font-size: 1.5rem;
+      margin-bottom: 30px;
+      color: rgba(255,255,255,0.9);
+    }
+    .slideshow-container {
+      background: rgba(255,255,255,0.1);
+      border-radius: 10px;
+      padding: 20px;
+      margin: 30px auto;
+      max-width: 600px;
+      min-height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .slide-item {
+      font-size: 1.2rem;
+      animation: slideIn 0.5s ease-in;
+    }
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    .media-section {
+      padding: 40px 20px;
+      text-align: center;
+      background: #f8f9fa;
+    }
+    .media-placeholder {
+      width: 100%;
+      max-width: 800px;
+      height: 400px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 10px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 1.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .media-placeholder::before {
+      content: '📱';
+      font-size: 4rem;
+      position: absolute;
+      animation: float 3s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-20px); }
+    }
+    .footer {
+      background: #333;
+      color: white;
+      text-align: center;
+      padding: 20px;
+      margin-top: 40px;
+    }
+    .nav-menu {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      padding: 20px;
+      flex-wrap: wrap;
+      background: white;
+      border-bottom: 2px solid #e9ecef;
+    }
+    .nav-menu a {
+      padding: 10px 20px;
+      text-decoration: none;
+      color: #007BFF;
+      font-weight: bold;
+      border-radius: 5px;
+      transition: all 0.3s;
+    }
+    .nav-menu a:hover {
+      background: #007BFF;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div class="nav-menu">
+    <a href="/home.html">Home</a>
+    <a href="/about.html">About</a>
+    <a href="/levels.html">Levels</a>
+    <a href="/index.html">Login</a>
+    <a href="/dashboard.html" id="dashboardLink" style="display: none;">Dashboard</a>
+    <a href="/me.html" id="meLink" style="display: none;">Me</a>
+  </div>
+
+  <div class="hero-section">
+    <h1>ZAMBIA YOUTH SELF EMPLOYMENT</h1>
+    <p class="tagline">WORK SMART WORK DIGITAL</p>
+    
+    <div class="slideshow-container">
+      <div id="slideshow" class="slide-item">
+        Loading...
+      </div>
+    </div>
+  </div>
+
+  <div class="media-section">
+    <h2 style="margin-bottom: 30px; color: #007BFF;">Empowering Youth Through Digital Investment</h2>
+    <div class="media-placeholder">
+      <div style="z-index: 1; position: relative;">
+        <p>Youth with phones browsing</p>
+        <p style="font-size: 1rem; margin-top: 10px;">📱💼📈</p>
+      </div>
+    </div>
+    <p style="margin-top: 20px; color: #6c757d; max-width: 600px; margin-left: auto; margin-right: auto;">
+      Join thousands of Zambian youth who are building their future through smart digital investments.
+      Start your journey today and unlock your potential.
+    </p>
+  </div>
+
+  <div class="footer">
+    <p>&copy; 2025 All Rights Reserved - Zambia Youth Self Employment</p>
+  </div>
+
+  <script src="/js/auth.js"></script>
+  <script>
+    // Check if user is logged in
+    if (isAuthenticated()) {
+      document.getElementById('dashboardLink').style.display = 'inline-block';
+      document.getElementById('meLink').style.display = 'inline-block';
+    }
+
+    // Generate random phone numbers and levels
+    function generatePhoneNumber() {
+      const prefixes = ['097', '096', '095', '077', '076', '075'];
+      const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+      const number = Math.floor(1000000 + Math.random() * 9000000);
+      return prefix + number.toString();
+    }
+
+    function generateLevel() {
+      const levels = ['L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'L8', 'L9', 'L10'];
+      return levels[Math.floor(Math.random() * levels.length)];
+    }
+
+    // Slideshow functionality
+    function updateSlideshow() {
+      const slideshow = document.getElementById('slideshow');
+      const phone = generatePhoneNumber();
+      const level = generateLevel();
+      
+      slideshow.style.opacity = '0';
+      
+      setTimeout(() => {
+        slideshow.textContent = `${phone} has activated in ${level}`;
+        slideshow.style.opacity = '1';
+      }, 250);
+    }
+
+    // Update slideshow every 3 seconds
+    updateSlideshow();
+    setInterval(updateSlideshow, 3000);
+  </script>
+</body>
+</html>
+

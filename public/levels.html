@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Investment Levels - Zambia Youth Self Employment</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .levels-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+    .level-card {
+      background: white;
+      border: 2px solid #e9ecef;
+      border-radius: 10px;
+      padding: 25px;
+      margin-bottom: 20px;
+      transition: all 0.3s;
+      display: grid;
+      grid-template-columns: 100px 1fr 1fr 1fr auto;
+      gap: 20px;
+      align-items: center;
+    }
+    .level-card:hover {
+      border-color: #007BFF;
+      box-shadow: 0 4px 12px rgba(0,123,255,0.2);
+      transform: translateY(-3px);
+    }
+    .level-badge {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: white;
+      background: linear-gradient(135deg, #007BFF 0%, #0056b3 100%);
+    }
+    .level-info {
+      display: flex;
+      flex-direction: column;
+    }
+    .level-info strong {
+      color: #007BFF;
+      font-size: 1.1rem;
+    }
+    .level-info span {
+      color: #6c757d;
+      font-size: 0.9rem;
+    }
+    .nav-menu {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      padding: 20px;
+      flex-wrap: wrap;
+      background: white;
+      border-bottom: 2px solid #e9ecef;
+    }
+    .nav-menu a {
+      padding: 10px 20px;
+      text-decoration: none;
+      color: #007BFF;
+      font-weight: bold;
+      border-radius: 5px;
+      transition: all 0.3s;
+    }
+    .nav-menu a:hover {
+      background: #007BFF;
+      color: white;
+    }
+    @media (max-width: 768px) {
+      .level-card {
+        grid-template-columns: 1fr;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="nav-menu">
+    <a href="/home.html">Home</a>
+    <a href="/about.html">About</a>
+    <a href="/levels.html">Levels</a>
+    <a href="/index.html">Login</a>
+    <a href="/dashboard.html" id="dashboardLink" style="display: none;">Dashboard</a>
+    <a href="/me.html" id="meLink" style="display: none;">Me</a>
+  </div>
+
+  <div class="container">
+    <div class="branding">
+      <h1>ZAMBIA YOUTH SELF EMPLOYMENT</h1>
+      <p class="tagline">WORK SMART WORK DIGITAL</p>
+    </div>
+
+    <div class="levels-container">
+      <h2 style="text-align: center; color: #007BFF; margin-bottom: 40px;">Choose Your Investment Level</h2>
+      <p style="text-align: center; color: #6c757d; margin-bottom: 40px; max-width: 600px; margin-left: auto; margin-right: auto;">
+        Select any investment level that suits your budget. Each level offers different daily returns. You can be on only one level at a time - switching levels will terminate your current investment.
+      </p>
+
+      <div id="levelsList">
+        <div class="loading">Loading levels...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer" style="background: #333; color: white; text-align: center; padding: 20px; margin-top: 40px;">
+    <p>&copy; 2025 All Rights Reserved - Zambia Youth Self Employment</p>
+  </div>
+
+  <script src="/js/auth.js"></script>
+  <script>
+    // Check if user is logged in
+    if (typeof isAuthenticated === 'function' && isAuthenticated()) {
+      document.getElementById('dashboardLink').style.display = 'inline-block';
+      document.getElementById('meLink').style.display = 'inline-block';
+    }
+
+    // Load levels from API
+    async function loadLevels() {
+      try {
+        const response = await fetch('/api/packages');
+        if (!response.ok) throw new Error('Failed to load levels');
+        
+        const packages = await response.json();
+        const levelsList = document.getElementById('levelsList');
+        
+        if (packages.length === 0) {
+          levelsList.innerHTML = '<p class="empty-state">No levels available</p>';
+          return;
+        }
+
+        // Sort by level
+        packages.sort((a, b) => {
+          const levelA = parseInt(a.level?.replace('L', '') || '0');
+          const levelB = parseInt(b.level?.replace('L', '') || '0');
+          return levelA - levelB;
+        });
+
+        levelsList.innerHTML = packages.map(pkg => {
+          const level = pkg.level || 'L1';
+          const amount = pkg.amount;
+          const dailyIncome = pkg.daily_income || (pkg.daily_rate * amount);
+          
+          return `
+            <div class="level-card">
+              <div class="level-badge">${level}</div>
+              <div class="level-info">
+                <strong>Investment Amount</strong>
+                <span>K${amount.toLocaleString()}</span>
+              </div>
+              <div class="level-info">
+                <strong>Daily Income</strong>
+                <span>K${dailyIncome.toFixed(2)}</span>
+              </div>
+              ${typeof isAuthenticated === 'function' && isAuthenticated() ? `
+                <a href="/invest.html?level=${pkg.id}" class="btn">Invest Now</a>
+              ` : `
+                <a href="/index.html" class="btn">Login to Invest</a>
+              `}
+            </div>
+          `;
+        }).join('');
+      } catch (error) {
+        console.error('Error loading levels:', error);
+        document.getElementById('levelsList').innerHTML = `
+          <div class="message error">Error loading levels: ${error.message}</div>
+        `;
+      }
+    }
+
+    loadLevels();
+  </script>
+</body>
+</html>
+

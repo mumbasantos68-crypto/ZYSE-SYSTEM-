@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: zyse-investment-platform
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+    healthCheckPath: /
+
+databases:
+  - name: zyse-database
+    plan: free
+    databaseName: zyse
+    user: zyse_user

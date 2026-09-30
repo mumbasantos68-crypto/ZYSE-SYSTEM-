@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Zambia Youth Self Employment</title>
+  <link rel="stylesheet" href="/css/style.css?v=3">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <style>
+    .dashboard-wrapper {
+      display: flex;
+      min-height: 100vh;
+    }
+    .sidebar {
+      width: 250px;
+      background: #2c3e50;
+      color: white;
+      padding: 20px 0;
+      position: fixed;
+      height: 100vh;
+      overflow-y: auto;
+    }
+    .sidebar-header {
+      padding: 20px;
+      text-align: center;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      margin-bottom: 20px;
+    }
+    .sidebar-header h2 {
+      font-size: 1.2rem;
+      margin: 0;
+      color: white;
+    }
+    .sidebar-header p {
+      font-size: 0.85rem;
+      margin: 5px 0 0;
+      color: rgba(255,255,255,0.7);
+    }
+    .nav-menu-sidebar {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .nav-menu-sidebar li {
+      margin: 0;
+    }
+    .nav-menu-sidebar a {
+      display: block;
+      padding: 15px 20px;
+      color: rgba(255,255,255,0.8);
+      text-decoration: none;
+      transition: all 0.3s;
+      border-left: 3px solid transparent;
+    }
+    .nav-menu-sidebar a:hover,
+    .nav-menu-sidebar a.active {
+      background: rgba(255,255,255,0.1);
+      border-left-color: #007BFF;
+      color: white;
+    }
+    .main-content {
+      margin-left: 250px;
+      flex: 1;
+      padding: 20px;
+      background: #f8f9fa;
+    }
+    .content-header {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .content-header h1 {
+      font-size: 1.8rem;
+      color: #007BFF;
+      margin: 0;
+    }
+    .content-section {
+      display: none;
+    }
+    .content-section.active {
+      display: block;
+    }
+    /* Mobile Hamburger Menu */
+    .mobile-menu-toggle {
+      display: none;
+      position: fixed;
+      top: 15px;
+      left: 15px;
+      z-index: 1001;
+      background: #2c3e50;
+      color: white;
+      border: none;
+      padding: 12px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1.2rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .mobile-menu-toggle:hover {
+      background: #34495e;
+    }
+    .mobile-menu-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 999;
+    }
+    .mobile-menu-overlay.active {
+      display: block;
+    }
+    @media (max-width: 768px) {
+      .mobile-menu-toggle {
+        display: block;
+      }
+      .sidebar {
+        width: 280px;
+        position: fixed;
+        left: -280px;
+        top: 0;
+        height: 100vh;
+        z-index: 1000;
+        transition: left 0.3s ease;
+        box-shadow: 2px 0 10px rgba(0,0,0,0.3);
+      }
+      .sidebar.active {
+        left: 0;
+      }
+      .main-content {
+        margin-left: 0;
+        padding: 60px 15px 20px;
+      }
+      .content-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+        padding: 15px;
+      }
+      .content-header h1 {
+        font-size: 1.4rem;
+      }
+      .nav-menu-sidebar {
+        display: block;
+        overflow-y: auto;
+        height: calc(100vh - 120px);
+      }
+      .nav-menu-sidebar li {
+        flex-shrink: 0;
+      }
+      .nav-menu-sidebar a {
+        padding: 18px 20px;
+        font-size: 1rem;
+        border-left: none;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+      }
+      .nav-menu-sidebar a:hover,
+      .nav-menu-sidebar a.active {
+        border-left: none;
+        border-bottom-color: #007BFF;
+        background: rgba(255,255,255,0.15);
+      }
+    }
+    @media (max-width: 480px) {
+      .sidebar {
+        width: 100%;
+        left: -100%;
+      }
+      .main-content {
+        padding: 60px 10px 15px;
+      }
+      .content-header {
+        padding: 12px;
+      }
+      .content-header h1 {
+        font-size: 1.2rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Mobile Menu Toggle Button -->
+  <button class="mobile-menu-toggle" onclick="toggleMobileMenu()" aria-label="Toggle menu">☰</button>
+  
+  <!-- Mobile Menu Overlay -->
+  <div class="mobile-menu-overlay" onclick="toggleMobileMenu()"></div>
+  
+  <div class="dashboard-wrapper">
+    <!-- Sidebar Navigation -->
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <h2>ZAMBIA YOUTH</h2>
+        <p>WORK SMART WORK DIGITAL</p>
+      </div>
+      <ul class="nav-menu-sidebar">
+        <li><a href="#" onclick="showSection('home'); if(window.innerWidth <= 768) window.closeMobileMenu(); return false;" id="nav-home" class="active">🏠 Home</a></li>
+        <li><a href="#" onclick="showSection('dashboard'); if(window.innerWidth <= 768) window.closeMobileMenu(); return false;" id="nav-dashboard">📊 Dashboard</a></li>
+        <li><a href="#" onclick="showSection('levels'); if(window.innerWidth <= 768) window.closeMobileMenu(); return false;" id="nav-levels">⭐ Levels</a></li>
+        <li><a href="#" onclick="showSection('about'); if(window.innerWidth <= 768) window.closeMobileMenu(); return false;" id="nav-about">ℹ️ About</a></li>
+        <li><a href="#" onclick="showSection('me'); if(window.innerWidth <= 768) window.closeMobileMenu(); return false;" id="nav-me">👤 Me</a></li>
+        <li><a href="#" onclick="if(window.innerWidth <= 768) window.closeMobileMenu(); logout(); return false;">🚪 Logout</a></li>
+      </ul>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="main-content">
+      <!-- Home Section -->
+      <div id="section-home" class="content-section active">
+        <div class="content-header">
+          <h1>Welcome Home</h1>
+        </div>
+        <div id="homeContent">
+          <div class="loading">Loading home content...</div>
+        </div>
+      </div>
+
+      <!-- Dashboard Section -->
+      <div id="section-dashboard" class="content-section">
+        <div class="content-header">
+          <h1>My Investments</h1>
+          <a href="#" onclick="showSection('levels'); return false;" class="btn">Invest Now</a>
+        </div>
+        <div id="dashboardContent">
+          <div class="loading">Loading...</div>
+        </div>
+      </div>
+
+      <!-- Levels Section -->
+      <div id="section-levels" class="content-section">
+        <div class="content-header">
+          <h1>Investment Levels</h1>
+        </div>
+        <div id="levelsContent">
+          <div class="loading">Loading levels...</div>
+        </div>
+      </div>
+
+      <!-- About Section -->
+      <div id="section-about" class="content-section">
+        <div class="content-header">
+          <h1>About Us</h1>
+        </div>
+        <div id="aboutContent">
+          <div class="loading">Loading about content...</div>
+        </div>
+      </div>
+
+      <!-- Me Section -->
+      <div id="section-me" class="content-section">
+        <div class="content-header">
+          <h1>My Profile</h1>
+        </div>
+        <div id="meContent">
+          <div class="loading">Loading profile...</div>
+        </div>
+      </div>
+
+      <!-- Withdraw Section -->
+      <div id="section-withdraw" class="content-section">
+        <div class="content-header">
+          <h1>Withdraw Funds</h1>
+        </div>
+        <div id="withdrawContent">
+          <div class="loading">Loading withdrawal form...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/modals.js?v=1"></script>
+  <script src="/js/api-utils.js?v=1"></script>
+  <script src="/js/auth.js?v=3"></script>
+  <script src="/js/dashboard.js?v=4"></script>
+  <script src="/js/dashboard-sections.js?v=4"></script>
+  <script>
+    // Mobile menu toggle function
+    function toggleMobileMenu() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.querySelector('.mobile-menu-overlay');
+      
+      if (sidebar && overlay) {
+        sidebar.classList.toggle('active');
+        overlay.classList.toggle('active');
+        
+        // Prevent body scroll when menu is open
+        if (sidebar.classList.contains('active')) {
+          document.body.style.overflow = 'hidden';
+        } else {
+          document.body.style.overflow = '';
+        }
+      }
+    }
+    
+    // Close mobile menu function (exposed globally)
+    window.closeMobileMenu = function() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.querySelector('.mobile-menu-overlay');
+      
+      if (sidebar && overlay) {
+        sidebar.classList.remove('active');
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
+      }
+    };
+    
+    // Close mobile menu when clicking on a menu item
+    document.addEventListener('DOMContentLoaded', function() {
+      const menuLinks = document.querySelectorAll('.nav-menu-sidebar a');
+      menuLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+          // Close menu immediately on mobile when clicking menu item
+          if (window.innerWidth <= 768) {
+            // Close menu immediately
+            window.closeMobileMenu();
+          }
+        });
+      });
+      
+      // Close menu when clicking outside (on overlay)
+      const overlay = document.querySelector('.mobile-menu-overlay');
+      if (overlay) {
+        overlay.addEventListener('click', function() {
+          window.closeMobileMenu();
+        });
+      }
+    });
+  </script>
+</body>
+</html>
