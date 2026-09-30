@@ -1120,7 +1120,8 @@ app.get('/api/profile', authenticateToken, async (req, res) => {
       withdrawal_wallet: user.withdrawal_wallet || '',
       withdrawal_phone: user.withdrawal_phone || '',
       profile_picture: user.profile_picture || '',
-      has_withdrawal_password: !!userWithPassword?.withdrawal_password
+      has_withdrawal_password: !!userWithPassword?.withdrawal_password,
+      isAdmin: Number(user.is_admin) === 1 || isConfiguredAdminUser(user)
     });
   } catch (error) {
     console.error('Profile error:', error);

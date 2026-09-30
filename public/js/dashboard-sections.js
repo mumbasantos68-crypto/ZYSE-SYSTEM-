@@ -2721,16 +2721,6 @@ function initDashboardSections() {
   console.log('User authenticated, loading sections...');
   const user = getUser();
   console.log('Current user:', user);
-
-  function isAdminUser(currentUser) {
-    return !!(currentUser && (currentUser.isAdmin === true || currentUser.isAdmin === 1 || currentUser.isAdmin === '1'));
-  }
-
-  const showAdmin = isAdminUser(user);
-  const adminNavItem = document.getElementById('adminNavItem');
-  const adminHeaderBtn = document.getElementById('adminHeaderBtn');
-  if (adminNavItem) adminNavItem.style.display = showAdmin ? '' : 'none';
-  if (adminHeaderBtn) adminHeaderBtn.style.display = showAdmin ? 'inline-flex' : 'none';
   
   // Check if containers exist
   const homeContent = document.getElementById('homeContent');
