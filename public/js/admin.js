@@ -91,6 +91,54 @@ async function loadAdminData() {
 // Store users data globally for search functionality
 let allUsersData = [];
 
+function getAdminUserPhone(u) {
+  return (u && (u.phone || u.phone_number || u.phoneNumber || u.msisdn || u.mobile || u.contact_phone || u.contact)) || '';
+}
+
+function renderUsersTable(users) {
+  if (!users || users.length === 0) {
+    return '<p class="empty-state">No users found.</p>';
+  }
+
+  return `
+    <table class="table admin-users-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Phone</th>
+          <th>Email</th>
+          <th>Invited by</th>
+          <th>Joined</th>
+          <th>Role</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${users.map((user, index) => {
+          const phone = getAdminUserPhone(user);
+          const safeName = (phone || user.email || 'User').replace(/'/g, "\\'");
+          return `
+            <tr>
+              <td>${index + 1}</td>
+              <td class="admin-cell-strong">${phone || '—'}</td>
+              <td class="admin-cell-email">${user.email || '—'}</td>
+              <td>${user.invited_by_phone || user.invited_by_email || (user.invited_by_user_id ? `User #${user.invited_by_user_id}` : '—')}</td>
+              <td class="admin-cell-date">${formatDateTime(user.created_at)}</td>
+              <td>${user.is_admin ? '<span class="admin-role">Admin</span>' : 'Member'}</td>
+              <td>
+                <div class="admin-row-actions">
+                  <button type="button" class="admin-chip" onclick="resetUserPassword(${user.id}, '${safeName}', this)" title="Reset password">Reset</button>
+                  ${!user.is_admin ? `<button type="button" class="admin-chip danger" onclick="deleteUser(${user.id}, '${safeName}')" title="Delete user">Delete</button>` : ''}
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
 function showAdminTab(tab) {
   document.querySelectorAll('.admin-tab-panel').forEach((panel) => {
     panel.hidden = panel.dataset.tab !== tab;
@@ -122,51 +170,7 @@ function renderAdminDashboard(users, investments, stats, withdrawalRequests, dep
   
   // pendingRequests already defined above; reuse it here
 
-  // Helper: best-effort phone extraction
-  const getUserPhone = (u) => (u && (u.phone || u.phone_number || u.phoneNumber || u.msisdn || u.mobile || u.contact_phone || u.contact)) || '';
-
-  // Users table
-  const usersHTML = sortedUsers.length === 0 ? 
-    '<p class="empty-state">No users found.</p>' :
-    `
-      <table class="table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Account ID (Phone)</th>
-            <th>Phone</th>
-            <th>Email</th>
-            <th>Invited By</th>
-            <th>Created At</th>
-            <th>Admin</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${sortedUsers.map((user, index) => `
-            <tr>
-              <td>${index + 1}</td>
-              <td>${getUserPhone(user) ? `<span>${getUserPhone(user)}</span>` : '<span style="color:#dc3545;">None</span>'}</td>
-              <td>${getUserPhone(user) || 'N/A'}</td>
-              <td>${user.email || 'N/A'}</td>
-              <td>${user.invited_by_phone || user.invited_by_email || (user.invited_by_user_id ? `User #${user.invited_by_user_id}` : 'N/A')}</td>
-              <td>${formatDateTime(user.created_at)}</td>
-              <td>${user.is_admin ? 'Yes' : 'No'}</td>
-              <td>
-                <button class="btn btn-warning" onclick="resetUserPassword(${user.id}, '${(getUserPhone(user) || user.email || 'User').replace(/'/g, "\\'")}', this)" title="Reset Password">
-                  Reset password
-                </button>
-                ${!user.is_admin ? `
-                  <button class="btn btn-danger" onclick="deleteUser(${user.id}, '${(getUserPhone(user) || user.email || 'User').replace(/'/g, "\\'")}')" title="Delete User">
-                    Delete
-                  </button>
-                ` : '<span class="empty-state">Admin</span>'}
-              </td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    `;
+  const usersHTML = renderUsersTable(sortedUsers);
 
   // Investments table
   const investmentsHTML = investments.length === 0 ?
@@ -1581,47 +1585,7 @@ function filterUsersTable(searchTerm) {
     return new Date(b.created_at) - new Date(a.created_at);
   }) : allUsersData;
   
-  const usersHTML = usersToRender.length === 0 ? 
-    '<p class="empty-state">No users found.</p>' :
-    `
-      <table class="table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Account ID (Phone)</th>
-            <th>Phone</th>
-            <th>Email</th>
-            <th>Invited By</th>
-            <th>Created At</th>
-            <th>Admin</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${usersToRender.map((user, index) => `
-            <tr>
-              <td>${index + 1}</td>
-              <td>${getUserPhone(user) ? `<span>${getUserPhone(user)}</span>` : '<span style="color:#dc3545;">None</span>'}</td>
-              <td>${getUserPhone(user) || 'N/A'}</td>
-              <td>${user.email || 'N/A'}</td>
-              <td>${user.invited_by_phone || user.invited_by_email || (user.invited_by_user_id ? `User #${user.invited_by_user_id}` : 'N/A')}</td>
-              <td>${formatDateTime(user.created_at)}</td>
-              <td>${user.is_admin ? 'Yes' : 'No'}</td>
-              <td>
-                <button class="btn btn-warning" onclick="resetUserPassword(${user.id}, '${(getUserPhone(user) || user.email || 'User').replace(/'/g, "\\'")}', this)" title="Reset Password">
-                  Reset password
-                </button>
-                ${!user.is_admin ? `
-                  <button class="btn btn-danger" onclick="deleteUser(${user.id}, '${(getUserPhone(user) || user.email || 'User').replace(/'/g, "\\'")}')" title="Delete User">
-                    Delete
-                  </button>
-                ` : '<span class="empty-state">Admin</span>'}
-              </td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    `;
+  const usersHTML = renderUsersTable(usersToRender);
   
   tableContainer.innerHTML = usersHTML;
 }
