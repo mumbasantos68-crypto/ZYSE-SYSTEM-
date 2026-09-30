@@ -74,7 +74,6 @@ async function handleLogin(e) {
     localStorage.setItem('token', data.token);
     localStorage.setItem('user', JSON.stringify(userData));
 
-    // Redirect to dashboard
     window.location.href = '/dashboard.html';
   } catch (error) {
     console.error('Login error:', error);

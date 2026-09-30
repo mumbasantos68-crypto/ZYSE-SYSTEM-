@@ -4,7 +4,7 @@ const path = require('path');
 const cors = require('cors');
 const cron = require('node-cron');
 const { initDB, dbQuery, dbRun, dbGet, dbTransaction } = require('./utils/db');
-const { authenticateToken, requireAdmin, getUserByEmail, getUserByPhone, getUserById, hashPassword, comparePassword, generateToken, normalizeZambianPhone } = require('./utils/auth');
+const { authenticateToken, requireAdmin, getUserByEmail, getUserByPhone, getUserById, hashPassword, comparePassword, generateToken, normalizeZambianPhone, isConfiguredAdminUser } = require('./utils/auth');
 const { initializePayment, verifyPayment, generateReference } = require('./utils/payments');
 const nodemailer = require('nodemailer');
 const { body, validationResult } = require('express-validator');
@@ -294,27 +294,12 @@ app.post('/api/register', [
     const passwordHash = await hashPassword(password);
     console.log('Step 3a: Password hashed successfully');
 
-    // Check if admin phone (optional - can set ADMIN_PHONE in .env)
-    // Normalize ADMIN_PHONE to ensure it matches regardless of format
-    let adminPhoneNormalized = null;
-    if (process.env.ADMIN_PHONE) {
-      try {
-        adminPhoneNormalized = normalizeZambianPhone(process.env.ADMIN_PHONE);
-        if (adminPhoneNormalized && adminPhoneNormalized.length === 9) {
-          adminPhoneNormalized = '0' + adminPhoneNormalized;
-        }
-      } catch (e) {
-        adminPhoneNormalized = process.env.ADMIN_PHONE.trim().replace(/\s+/g, '');
-      }
-    }
-    const isAdmin = (adminPhoneNormalized && normalizedPhone === adminPhoneNormalized) || 
-                    (normalizedEmail && normalizedEmail === process.env.ADMIN_EMAIL);
+    const isAdmin = isConfiguredAdminUser({ phone: normalizedPhone, email: normalizedEmail });
     console.log('Step 4: Admin check:', {
       isAdmin,
       normalizedPhone,
-      adminPhoneNormalized,
       adminPhoneEnv: process.env.ADMIN_PHONE,
-      match: normalizedPhone === adminPhoneNormalized
+      adminEmailEnv: process.env.ADMIN_EMAIL
     });
 
     // Because the existing database schema has email marked as NOT NULL,
@@ -474,6 +459,12 @@ app.post('/api/login', [
     
     console.log(`✅ Login successful: User ID ${user.id}, Phone: ${user.phone}`);
 
+    if (Number(user.is_admin) !== 1 && isConfiguredAdminUser(user)) {
+      await dbRun('UPDATE users SET is_admin = 1 WHERE id = ?', [user.id]);
+      user.is_admin = 1;
+      console.log(`✅ Promoted user ${user.id} to admin (ADMIN_PHONE / ADMIN_EMAIL match)`);
+    }
+
     // Generate token
     let token;
     try {
@@ -498,7 +489,7 @@ app.post('/api/login', [
         id: user.id,
         phone: user.phone,
         email: userEmail,
-        isAdmin: user.is_admin === 1
+        isAdmin: Number(user.is_admin) === 1
       }
     });
   } catch (error) {

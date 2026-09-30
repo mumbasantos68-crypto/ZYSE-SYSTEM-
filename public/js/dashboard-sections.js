@@ -538,9 +538,9 @@ async function loadInvestmentsDirectly() {
         ${transactionsHTML}
       </div>
 
-      ${user && user.isAdmin ? `
+      ${user && (user.isAdmin === true || user.isAdmin === 1 || user.isAdmin === '1') ? `
         <div class="mt-20">
-          <a href="/admin.html" class="btn btn-secondary">Admin Panel</a>
+          <a href="/admin.html" class="btn">Admin Panel</a>
         </div>
       ` : ''}
     `;
@@ -2721,6 +2721,16 @@ function initDashboardSections() {
   console.log('User authenticated, loading sections...');
   const user = getUser();
   console.log('Current user:', user);
+
+  function isAdminUser(currentUser) {
+    return !!(currentUser && (currentUser.isAdmin === true || currentUser.isAdmin === 1 || currentUser.isAdmin === '1'));
+  }
+
+  const showAdmin = isAdminUser(user);
+  const adminNavItem = document.getElementById('adminNavItem');
+  const adminHeaderBtn = document.getElementById('adminHeaderBtn');
+  if (adminNavItem) adminNavItem.style.display = showAdmin ? '' : 'none';
+  if (adminHeaderBtn) adminHeaderBtn.style.display = showAdmin ? 'inline-flex' : 'none';
   
   // Check if containers exist
   const homeContent = document.getElementById('homeContent');

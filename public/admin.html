@@ -4,30 +4,33 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Panel - Zambia Youth Self Employment</title>
-  <link rel="stylesheet" href="/css/style.css?v=3">
+  <link rel="stylesheet" href="/css/style.css?v=5">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
 </head>
-<body>
-  <div class="container">
-    <div class="admin-header">
-      <h1>ZAMBIA YOUTH SELF EMPLOYMENT</h1>
-      <p class="tagline">WORK SMART WORK DIGITAL</p>
-      <div style="margin-top: 20px;">
-        <a href="/dashboard.html" class="btn btn-secondary">Back to Dashboard</a>
-        <button class="btn btn-danger" onclick="logout()" style="margin-left: 10px;">Logout</button>
+<body class="app-shell admin-page">
+  <div class="admin-shell">
+    <aside class="admin-rail">
+      <div class="admin-rail-brand">
+        <p class="admin-rail-kicker">ZYSE Control</p>
+        <h1>Admin Panel</h1>
+        <p>Approvals, users, and payouts</p>
       </div>
-    </div>
-
-    <div id="adminContent">
-      <div class="loading">Loading admin data...</div>
-    </div>
+      <nav class="admin-rail-nav">
+        <a href="/dashboard.html">← Member app</a>
+        <button type="button" class="admin-rail-link" onclick="logout()">Logout</button>
+      </nav>
+    </aside>
+    <main class="admin-main">
+      <div id="adminContent">
+        <div class="loading">Loading admin data...</div>
+      </div>
+    </main>
   </div>
 
-  <script src="/js/auth.js?v=3"></script>
+  <script src="/js/auth.js?v=5"></script>
   <script src="/js/modals.js?v=1"></script>
-  <script src="/js/admin.js?v=3"></script>
+  <script src="/js/admin.js?v=5"></script>
 </body>
 </html>
-

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard - Zambia Youth Self Employment</title>
-  <link rel="stylesheet" href="/css/style.css?v=3">
+  <link rel="stylesheet" href="/css/style.css?v=5">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -15,7 +15,7 @@
     }
     .sidebar {
       width: 250px;
-      background: #2c3e50;
+      background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
       color: white;
       padding: 20px 0;
       position: fixed;
@@ -57,8 +57,12 @@
     .nav-menu-sidebar a:hover,
     .nav-menu-sidebar a.active {
       background: rgba(255,255,255,0.1);
-      border-left-color: #007BFF;
+      border-left-color: #38bdf8;
       color: white;
+    }
+    #nav-admin {
+      color: #fbbf24;
+      font-weight: 600;
     }
     .main-content {
       margin-left: 250px;
@@ -80,6 +84,16 @@
       font-size: 1.8rem;
       color: #007BFF;
       margin: 0;
+    }
+    .admin-entry-btn {
+      background: #0f172a !important;
+      border: none;
+      color: #fbbf24 !important;
+      font-weight: 700;
+      padding: 10px 18px;
+    }
+    .admin-entry-btn:hover {
+      background: #1e293b !important;
     }
     .content-section {
       display: none;
@@ -207,6 +221,9 @@
         <li><a href="#" onclick="showSection('levels'); if(window.innerWidth <= 768) window.closeMobileMenu(); return false;" id="nav-levels">⭐ Levels</a></li>
         <li><a href="#" onclick="showSection('about'); if(window.innerWidth <= 768) window.closeMobileMenu(); return false;" id="nav-about">ℹ️ About</a></li>
         <li><a href="#" onclick="showSection('me'); if(window.innerWidth <= 768) window.closeMobileMenu(); return false;" id="nav-me">👤 Me</a></li>
+        <li id="adminNavItem" style="display: none;">
+          <a href="/admin.html" id="nav-admin">🛡️ Admin Panel</a>
+        </li>
         <li><a href="#" onclick="if(window.innerWidth <= 768) window.closeMobileMenu(); logout(); return false;">🚪 Logout</a></li>
       </ul>
     </div>
@@ -217,6 +234,7 @@
       <div id="section-home" class="content-section active">
         <div class="content-header">
           <h1>Welcome Home</h1>
+          <a href="/admin.html" id="adminHeaderBtn" class="btn admin-entry-btn" style="display: none;">Admin Panel</a>
         </div>
         <div id="homeContent">
           <div class="loading">Loading home content...</div>
@@ -278,9 +296,9 @@
 
   <script src="/js/modals.js?v=1"></script>
   <script src="/js/api-utils.js?v=1"></script>
-  <script src="/js/auth.js?v=3"></script>
-  <script src="/js/dashboard.js?v=4"></script>
-  <script src="/js/dashboard-sections.js?v=4"></script>
+  <script src="/js/auth.js?v=6"></script>
+  <script src="/js/dashboard.js?v=6"></script>
+  <script src="/js/dashboard-sections.js?v=6"></script>
   <script>
     // Mobile menu toggle function
     function toggleMobileMenu() {

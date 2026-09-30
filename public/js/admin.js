@@ -74,6 +74,15 @@ async function loadAdminData() {
 // Store users data globally for search functionality
 let allUsersData = [];
 
+function showAdminTab(tab) {
+  document.querySelectorAll('.admin-tab-panel').forEach((panel) => {
+    panel.hidden = panel.dataset.tab !== tab;
+  });
+  document.querySelectorAll('.admin-tab-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+}
+
 // Render admin dashboard
 function renderAdminDashboard(users, investments, stats, withdrawalRequests, deposits, announcements) {
   const adminContent = document.getElementById('adminContent');
@@ -188,7 +197,7 @@ function renderAdminDashboard(users, investments, stats, withdrawalRequests, dep
 
   const pendingRequests = withdrawalRequests.filter(r => r.status === 'pending');
   
-  adminContent.innerHTML = `
+    adminContent.innerHTML = `
     <div class="stats-grid">
       <div class="stat-card">
         <div class="stat-value">${stats.totalUsers}</div>
@@ -221,12 +230,21 @@ function renderAdminDashboard(users, investments, stats, withdrawalRequests, dep
       <button class="btn" onclick="showAnnouncementsModal()" style="background: #17a2b8; color: white;">📢 Manage Announcements</button>
     </div>
 
+    <div class="admin-tabs" role="tablist">
+      <button type="button" class="admin-tab-btn active" data-tab="approvals" onclick="showAdminTab('approvals')">Approvals</button>
+      <button type="button" class="admin-tab-btn" data-tab="users" onclick="showAdminTab('users')">Users</button>
+      <button type="button" class="admin-tab-btn" data-tab="investments" onclick="showAdminTab('investments')">Investments</button>
+    </div>
+
+    <div class="admin-tab-panel" data-tab="approvals">
     <div class="card mt-20">
       <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
         <span>Deposits (${deposits.length})</span>
         <button class="btn btn-danger" onclick="bulkDeleteDeposits()" style="padding: 8px 15px; font-size: 12px;" id="deleteDepositsBtn" disabled>🗑️ Delete Selected</button>
       </div>
+      <div class="table-wrap">
       ${renderDepositsTable(deposits)}
+      </div>
     </div>
 
     <div class="card mt-20">
@@ -234,9 +252,13 @@ function renderAdminDashboard(users, investments, stats, withdrawalRequests, dep
         <span>Withdrawal Requests (${withdrawalRequests.length})</span>
         <button class="btn btn-danger" onclick="bulkDeleteWithdrawalRequests()" style="padding: 8px 15px; font-size: 12px;" id="deleteRequestsBtn" disabled>🗑️ Delete Selected</button>
       </div>
+      <div class="table-wrap">
       ${renderWithdrawalRequests(withdrawalRequests)}
+      </div>
+    </div>
     </div>
 
+    <div class="admin-tab-panel" data-tab="users" hidden>
     <div class="card mt-20">
       <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
         <span>All Users (${sortedUsers.length})</span>
@@ -262,15 +284,20 @@ function renderAdminDashboard(users, investments, stats, withdrawalRequests, dep
           </button>
         </div>
       </div>
-      <div id="usersTableContainer">
+      <div id="usersTableContainer" class="table-wrap">
         ${usersHTML}
       </div>
       <div id="userSearchResults" style="padding: 10px 15px; color: #6c757d; font-size: 0.9rem; display: none;"></div>
     </div>
+    </div>
 
+    <div class="admin-tab-panel" data-tab="investments" hidden>
     <div class="card mt-20">
       <div class="card-header">All Investments (${investments.length})</div>
+      <div class="table-wrap">
       ${investmentsHTML}
+      </div>
+    </div>
     </div>
   `;
 }

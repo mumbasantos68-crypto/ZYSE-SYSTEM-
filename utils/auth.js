@@ -12,7 +12,7 @@ function generateToken(user) {
       userId: user.id,
       phone: user.phone,
       email: user.email || null, // Keep email for backward compatibility but it's optional
-      isAdmin: user.is_admin === 1
+      isAdmin: Number(user.is_admin) === 1
     },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRY }
@@ -134,6 +134,22 @@ async function getUserById(id) {
   return await dbGet('SELECT id, email, phone, created_at, is_admin FROM users WHERE id = ?', [id]);
 }
 
+function isConfiguredAdminUser(user) {
+  if (!user) return false;
+
+  if (process.env.ADMIN_PHONE) {
+    const adminNorm = normalizeZambianPhone(process.env.ADMIN_PHONE);
+    const userNorm = normalizeZambianPhone(user.phone);
+    if (adminNorm && userNorm && adminNorm === userNorm) return true;
+  }
+
+  const adminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+  const userEmail = user.email ? String(user.email).trim().toLowerCase() : '';
+  if (adminEmail && userEmail && userEmail === adminEmail) return true;
+
+  return false;
+}
+
 module.exports = {
   generateToken,
   verifyToken,
@@ -145,6 +161,7 @@ module.exports = {
   getUserByPhone,
   getUserById,
   normalizeZambianPhone,
+  isConfiguredAdminUser,
   JWT_SECRET
 };
 
