@@ -502,7 +502,7 @@ async function loadInvestmentsDirectly() {
         </div>
       </div>
 
-      <div style="display: flex; justify-content: space-between; align-items: center; margin: 30px 0;">
+      <div class="toolbar-row">
         <h2>My Investments</h2>
         <a href="#" onclick="showSection('levels'); return false;" class="btn">Invest Now</a>
       </div>
@@ -667,7 +667,7 @@ async function loadLevelsSection() {
           const isCurrentLevel = level === currentActiveLevel;
           
           return `
-            <div class="card" style="display: grid; grid-template-columns: 100px 1fr 1fr auto; gap: 20px; align-items: center; ${isCurrentLevel ? 'border: 3px solid #28a745; background: #f0fff4;' : ''}">
+            <div class="card level-card" style="${isCurrentLevel ? 'border: 3px solid #28a745; background: #f0fff4;' : ''}">
               <div style="position: relative; width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: bold; color: white; background: ${isCurrentLevel ? 'linear-gradient(135deg, #28a745 0%, #20c997 100%)' : 'linear-gradient(135deg, #007BFF 0%, #0056b3 100%)'};">
                 ${level}
                 ${isCurrentLevel ? '<div style="position: absolute; top: -5px; right: -5px; background: #28a745; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 12px; border: 2px solid white;">✓</div>' : ''}
@@ -680,13 +680,13 @@ async function loadLevelsSection() {
                 <strong style="color: #007BFF;">Daily Income</strong><br>
                 <span style="color: #28a745; font-weight: bold;">K${dailyIncome.toFixed(2)}/day</span>
               </div>
-              <div style="display: flex; gap: 10px;">
+              <div class="level-actions">
                 ${isCurrentLevel ? `
                   <button class="btn" disabled style="flex: 1; background: #28a745; border-color: #28a745; cursor: not-allowed;">✓ Current Level</button>
-                  <button class="btn" onclick="showDepositModal(${pkg.id}, ${amount})" style="flex: 1; background: #17a2b8; border-color: #17a2b8;">💰 Deposit</button>
+                  <button class="btn" onclick="showDepositModal(${pkg.id}, ${amount})" style="flex: 1; background: #17a2b8; border-color: #17a2b8;">Deposit</button>
                 ` : `
                   <button class="btn" onclick="confirmInvestment(${pkg.id}, ${amount}, '${level}')" style="flex: 1;">${currentActiveLevel ? 'Switch to ' + level : 'Invest in ' + level}</button>
-                  <button class="btn" onclick="showDepositModal(${pkg.id}, ${amount})" style="flex: 1; background: #28a745; border-color: #28a745;">💰 Deposit</button>
+                  <button class="btn" onclick="showDepositModal(${pkg.id}, ${amount})" style="flex: 1; background: #28a745; border-color: #28a745;">Deposit</button>
                 `}
               </div>
             </div>
