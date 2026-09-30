@@ -6,7 +6,7 @@ const cron = require('node-cron');
 const { initDB, dbQuery, dbRun, dbGet, dbTransaction } = require('./utils/db');
 const { authenticateToken, requireAdmin, getUserByEmail, getUserByPhone, getUserById, getRequestUser, hashPassword, comparePassword, generateToken, normalizeZambianPhone, isConfiguredAdminUser } = require('./utils/auth');
 const { initializePayment, verifyPayment, generateReference } = require('./utils/payments');
-const { getZambiaDate, getPublicPuzzle, isValidPuzzlePath, quoteAmounts, ensureDailyCheckinsTable } = require('./utils/dailyCheckin');
+const { getZambiaDate, getPublicPuzzle, isValidPuzzleSelection, quoteAmounts, ensureDailyCheckinsTable, getDailyCheckEligibility } = require('./utils/dailyCheckin');
 const nodemailer = require('nodemailer');
 const { body, validationResult } = require('express-validator');
 const multer = require('multer');
@@ -513,15 +513,25 @@ app.get('/api/daily-check', authenticateToken, async (req, res) => {
     }
     const userId = user.id;
     const checkDate = getZambiaDate();
+    const access = await getDailyCheckEligibility(userId);
+    if (!access.unlocked) {
+      return res.json({
+        checkDate,
+        unlocked: false,
+        claimed: false,
+        puzzle: null
+      });
+    }
     const existing = await dbGet(
       'SELECT id, total_amount, level_bonus, complete_bonus FROM daily_checkins WHERE user_id = ? AND check_date = ?',
       [userId, checkDate]
     );
-    const amounts = quoteAmounts(user.level);
+    const amounts = quoteAmounts(access.level);
     res.json({
       checkDate,
+      unlocked: true,
       claimed: !!existing,
-      level: user.level || 'L1',
+      level: access.level,
       levelBonus: amounts.levelBonus,
       completeBonus: amounts.completeBonus,
       total: amounts.total,
@@ -544,6 +554,10 @@ app.post('/api/daily-check', authenticateToken, async (req, res) => {
     }
     const userId = user.id;
     const checkDate = getZambiaDate();
+    const access = await getDailyCheckEligibility(userId);
+    if (!access.unlocked) {
+      return res.status(403).json({ error: 'Invest in a level first to unlock Daily task puzzle' });
+    }
     const existing = await dbGet(
       'SELECT id FROM daily_checkins WHERE user_id = ? AND check_date = ?',
       [userId, checkDate]
@@ -551,11 +565,11 @@ app.post('/api/daily-check', authenticateToken, async (req, res) => {
     if (existing) {
       return res.status(400).json({ error: 'You already completed today\'s daily check' });
     }
-    if (!isValidPuzzlePath(checkDate, puzzleId, path)) {
-      return res.status(400).json({ error: 'Connect at least 3 matching dots that touch' });
+    if (!isValidPuzzleSelection(checkDate, puzzleId, path)) {
+      return res.status(400).json({ error: 'Select only the balls of the colour asked' });
     }
-    const amounts = quoteAmounts(user.level);
-    const levelLabel = user.level || 'L1';
+    const amounts = quoteAmounts(access.level);
+    const levelLabel = access.level;
     await dbTransaction([
       {
         query: 'INSERT INTO daily_checkins (user_id, check_date, level, level_bonus, complete_bonus, total_amount) VALUES (?, ?, ?, ?, ?, ?)',

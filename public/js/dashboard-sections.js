@@ -219,7 +219,7 @@ async function loadHomeSection() {
         <button type="button" class="home-action" onclick="showSection('daily')">
           <span class="home-action-icon">✓</span>
           <strong>Daily task puzzle</strong>
-          <span>Connect 3 matching dots</span>
+          <span>Select the colour asked</span>
         </button>
       </div>
 
@@ -584,50 +584,56 @@ async function loadDailyCheckSection() {
       method: 'GET'
     });
 
-    const levelBonus = Number(data.levelBonus || 0).toFixed(2);
-    const completeBonus = Number(data.completeBonus || 0).toFixed(2);
-    const total = Number(data.total || 0).toFixed(2);
+    const total = Number(data.total || data.levelBonus || 0).toFixed(2);
 
-    if (data.claimed) {
+    if (data.unlocked === false) {
       dailyContent.innerHTML = `
         <div class="daily-check-card">
-          <p class="daily-check-kicker">Today ${escapeDailyHtml(data.checkDate || '')}</p>
-          <h2>Daily task puzzle complete</h2>
-          <p>Your level <strong>${escapeDailyHtml(data.level || 'L1')}</strong> bonus plus the K2 complete bonus is already on your main balance.</p>
-          <div class="daily-check-payout">
-            <div><span>Level bonus</span><strong>K${levelBonus}</strong></div>
-            <div><span>Complete bonus</span><strong>K${completeBonus}</strong></div>
-            <div class="daily-check-total"><span>Added today</span><strong>K${Number(data.claimedTotal || data.total || 0).toFixed(2)}</strong></div>
-          </div>
-          <p class="daily-check-note">Come back tomorrow for a new puzzle.</p>
+          <p class="daily-check-kicker">Daily task puzzle</p>
+          <h2>Unlock this after you invest</h2>
+          <p>Daily checking opens when you invest and you are assigned a level. Then you can complete the puzzle once a day.</p>
+          <button type="button" class="btn" onclick="showSection('levels')">Go to Levels</button>
         </div>
       `;
       dailyContent.dataset.loaded = 'true';
       return;
     }
 
-    const puzzle = data.puzzle || { id: '', cols: 3, hint: '', cells: [] };
+    if (data.claimed) {
+      dailyContent.innerHTML = `
+        <div class="daily-check-card">
+          <p class="daily-check-kicker">Today ${escapeDailyHtml(data.checkDate || '')}</p>
+          <h2>Daily task puzzle complete</h2>
+          <p>Your <strong>${escapeDailyHtml(data.level || 'L1')}</strong> bonus is already on your main balance.</p>
+          <div class="daily-check-payout">
+            <div class="daily-check-total"><span>Added today</span><strong>K${Number(data.claimedTotal || data.total || 0).toFixed(2)}</strong></div>
+          </div>
+          <p class="daily-check-note">Come back tomorrow for a new colour to select.</p>
+        </div>
+      `;
+      dailyContent.dataset.loaded = 'true';
+      return;
+    }
+
+    const puzzle = data.puzzle || { id: '', cols: 3, hint: '', cells: [], target: 'red' };
     const cellsHtml = (puzzle.cells || []).map((color, index) => `
-      <button type="button" class="daily-puzzle-dot daily-puzzle-${escapeDailyHtml(color)}" data-index="${index}" aria-label="${escapeDailyHtml(color)} dot"></button>
+      <button type="button" class="daily-puzzle-dot daily-puzzle-${escapeDailyHtml(color)}" data-index="${index}" aria-label="${escapeDailyHtml(color)} ball"></button>
     `).join('');
 
     dailyContent.innerHTML = `
       <div class="daily-check-card">
         <p class="daily-check-kicker">Daily task puzzle · ${escapeDailyHtml(data.checkDate || '')}</p>
-        <h2>Connect at least 3 matching dots</h2>
-        <p>Tap dots that touch and share a colour. Today’s puzzle is different from yesterday. Finish it to add your level bonus plus <strong>K2.00</strong> to your main balance.</p>
+        <h2>${escapeDailyHtml(puzzle.hint || 'Select only the balls of one colour')}</h2>
+        <p>Tap every ball that matches the colour asked. Red, blue and green take turns each day. L1 earns <strong>K2.00</strong>, then <strong>K1.00</strong> more on each higher level.</p>
         <div class="daily-check-payout">
           <div><span>Your level</span><strong>${escapeDailyHtml(data.level || 'L1')}</strong></div>
-          <div><span>Level bonus</span><strong>K${levelBonus}</strong></div>
-          <div><span>Complete bonus</span><strong>K${completeBonus}</strong></div>
           <div class="daily-check-total"><span>Today if you finish</span><strong>K${total}</strong></div>
         </div>
         <div class="daily-check-task">
-          <h3>${escapeDailyHtml(puzzle.hint || 'Connect 3 matching dots that touch.')}</h3>
           <div class="daily-puzzle-board" id="dailyPuzzleBoard" style="grid-template-columns: repeat(${Number(puzzle.cols) || 3}, 1fr);">
             ${cellsHtml}
           </div>
-          <p class="daily-puzzle-status" id="dailyPuzzleStatus">Tap a coloured line of 3 or more.</p>
+          <p class="daily-puzzle-status" id="dailyPuzzleStatus">Tap only the ${escapeDailyHtml(puzzle.target || 'red')} balls.</p>
           <div class="daily-puzzle-actions">
             <button type="button" class="btn btn-secondary" id="dailyPuzzleReset">Clear</button>
             <button type="button" class="btn" id="dailyCheckSubmit" disabled>Complete puzzle and add bonus</button>
@@ -641,34 +647,33 @@ async function loadDailyCheckSection() {
     const submitBtn = document.getElementById('dailyCheckSubmit');
     const resetBtn = document.getElementById('dailyPuzzleReset');
     const cells = puzzle.cells || [];
-    const cols = Number(puzzle.cols) || 3;
-    let path = [];
+    const needed = cells.map((color, i) => (color === puzzle.target ? i : -1)).filter((i) => i >= 0);
+    let selected = [];
     let claiming = false;
 
-    function neighbors(a, b) {
-      const ar = Math.floor(a / cols);
-      const ac = a % cols;
-      const br = Math.floor(b / cols);
-      const bc = b % cols;
-      return Math.abs(ar - br) + Math.abs(ac - bc) === 1;
+    function sameSet(a, b) {
+      if (a.length !== b.length) return false;
+      const left = [...a].sort((x, y) => x - y);
+      const right = [...b].sort((x, y) => x - y);
+      return left.every((value, i) => value === right[i]);
     }
 
     function paint() {
       board.querySelectorAll('.daily-puzzle-dot').forEach((dot) => {
         const idx = Number(dot.dataset.index);
-        dot.classList.toggle('is-on', path.includes(idx));
+        dot.classList.toggle('is-on', selected.includes(idx));
       });
-      const ready = path.length >= 3;
+      const ready = sameSet(selected, needed);
       if (submitBtn) submitBtn.disabled = !ready || claiming;
       if (statusEl) {
         statusEl.textContent = ready
-          ? `${path.length} connected. Claim your bonus.`
-          : 'Tap matching dots that touch. You need at least 3.';
+          ? 'All the right balls are selected. Claim your bonus.'
+          : `Select only the ${puzzle.target} balls.`;
       }
     }
 
     async function claimPuzzle() {
-      if (path.length < 3 || claiming) return;
+      if (!sameSet(selected, needed) || claiming) return;
       claiming = true;
       if (submitBtn) {
         submitBtn.disabled = true;
@@ -678,7 +683,7 @@ async function loadDailyCheckSection() {
         const result = await authenticatedApiCall(`${window.API_BASE || ''}/api/daily-check`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ puzzleId: puzzle.id, path })
+          body: JSON.stringify({ puzzleId: puzzle.id, path: selected })
         });
         if (typeof showAlert === 'function') {
           showAlert(result.message || `K${Number(result.total || 0).toFixed(2)} added to your main balance`, 'Daily task puzzle');
@@ -687,7 +692,7 @@ async function loadDailyCheckSection() {
       } catch (err) {
         claiming = false;
         if (submitBtn) {
-          submitBtn.disabled = path.length < 3;
+          submitBtn.disabled = !sameSet(selected, needed);
           submitBtn.textContent = 'Complete puzzle and add bonus';
         }
         if (typeof showAlert === 'function') {
@@ -700,22 +705,10 @@ async function loadDailyCheckSection() {
       board.querySelectorAll('.daily-puzzle-dot').forEach((dot) => {
         dot.addEventListener('click', () => {
           const idx = Number(dot.dataset.index);
-          if (path.includes(idx)) {
-            if (path[path.length - 1] === idx) {
-              path.pop();
-            }
-            paint();
-            return;
-          }
-          if (path.length === 0) {
-            path = [idx];
+          if (selected.includes(idx)) {
+            selected = selected.filter((item) => item !== idx);
           } else {
-            const last = path[path.length - 1];
-            if (cells[idx] === cells[last] && neighbors(last, idx)) {
-              path.push(idx);
-            } else {
-              path = [idx];
-            }
+            selected = [...selected, idx];
           }
           paint();
         });
@@ -723,7 +716,7 @@ async function loadDailyCheckSection() {
     }
     if (resetBtn) {
       resetBtn.addEventListener('click', () => {
-        path = [];
+        selected = [];
         paint();
       });
     }

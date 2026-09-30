@@ -1,31 +1,33 @@
-const { dbRun } = require('./db');
-
-const COMPLETE_BONUS = 2;
+const { dbRun, dbGet } = require('./db');
 
 const PUZZLES = [
   {
     id: 'p1',
     cols: 3,
-    hint: 'Connect 3 blue dots in a line.',
-    cells: ['blue', 'gold', 'green', 'blue', 'gold', 'green', 'blue', 'green', 'gold']
+    target: 'red',
+    hint: 'Select only the red balls.',
+    cells: ['red', 'blue', 'green', 'red', 'green', 'blue', 'red', 'blue', 'green']
   },
   {
     id: 'p2',
     cols: 3,
-    hint: 'Connect 3 gold dots in a line.',
-    cells: ['green', 'gold', 'blue', 'blue', 'gold', 'green', 'green', 'gold', 'blue']
+    target: 'blue',
+    hint: 'Select only the blue balls.',
+    cells: ['red', 'blue', 'green', 'green', 'blue', 'red', 'red', 'blue', 'green']
   },
   {
     id: 'p3',
     cols: 3,
-    hint: 'Connect 3 green dots in a line.',
-    cells: ['gold', 'blue', 'green', 'gold', 'blue', 'green', 'blue', 'gold', 'green']
+    target: 'green',
+    hint: 'Select only the green balls.',
+    cells: ['red', 'green', 'blue', 'green', 'green', 'red', 'blue', 'green', 'red']
   },
   {
     id: 'p4',
-    cols: 4,
-    hint: 'Connect 3 or 4 sky dots in a line.',
-    cells: ['gold', 'sky', 'green', 'blue', 'gold', 'sky', 'green', 'blue', 'green', 'sky', 'sky', 'gold']
+    cols: 3,
+    target: 'red',
+    hint: 'Select only the red balls.',
+    cells: ['blue', 'red', 'green', 'red', 'blue', 'red', 'green', 'red', 'blue']
   }
 ];
 
@@ -45,7 +47,7 @@ function levelNumber(level) {
 }
 
 function getLevelBonus(level) {
-  return Math.round((1.5 + (levelNumber(level) - 1) * 0.5) * 100) / 100;
+  return 2 + (levelNumber(level) - 1);
 }
 
 function puzzleIndexForDate(dateStr) {
@@ -59,39 +61,55 @@ function getPublicPuzzle(dateStr) {
   return {
     id: puzzle.id,
     cols: puzzle.cols,
+    target: puzzle.target,
     hint: puzzle.hint,
     cells: puzzle.cells
   };
 }
 
-function areAdjacent(a, b, cols) {
-  const ar = Math.floor(a / cols);
-  const ac = a % cols;
-  const br = Math.floor(b / cols);
-  const bc = b % cols;
-  return Math.abs(ar - br) + Math.abs(ac - bc) === 1;
+function targetIndexes(puzzle) {
+  const indexes = [];
+  puzzle.cells.forEach((color, i) => {
+    if (color === puzzle.target) indexes.push(i);
+  });
+  return indexes;
 }
 
-function isValidPuzzlePath(dateStr, puzzleId, path) {
+function sameIndexSet(a, b) {
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+  const left = [...a].map(Number).sort((x, y) => x - y);
+  const right = [...b].map(Number).sort((x, y) => x - y);
+  return left.every((value, i) => value === right[i]);
+}
+
+function isValidPuzzleSelection(dateStr, puzzleId, selected) {
   const puzzle = PUZZLES[puzzleIndexForDate(dateStr)];
-  if (!puzzle || puzzle.id !== puzzleId || !Array.isArray(path) || path.length < 3) {
+  if (!puzzle || puzzle.id !== puzzleId || !Array.isArray(selected)) return false;
+  const unique = [...new Set(selected.map(Number))];
+  if (unique.length !== selected.length) return false;
+  if (unique.some((idx) => !Number.isInteger(idx) || idx < 0 || idx >= puzzle.cells.length)) {
     return false;
   }
-  const seen = new Set();
-  for (let i = 0; i < path.length; i++) {
-    const idx = Number(path[i]);
-    if (!Number.isInteger(idx) || idx < 0 || idx >= puzzle.cells.length || seen.has(idx)) {
-      return false;
-    }
-    seen.add(idx);
-    if (puzzle.cells[idx] !== puzzle.cells[path[0]]) {
-      return false;
-    }
-    if (i > 0 && !areAdjacent(Number(path[i - 1]), idx, puzzle.cols)) {
-      return false;
-    }
+  if (unique.some((idx) => puzzle.cells[idx] !== puzzle.target)) {
+    return false;
   }
-  return true;
+  return sameIndexSet(unique, targetIndexes(puzzle));
+}
+
+async function getDailyCheckEligibility(userId) {
+  const row = await dbGet(
+    `SELECT p.level as level
+     FROM investments i
+     JOIN packages p ON i.package_id = p.id
+     WHERE i.user_id = ? AND i.status = 'active'
+     ORDER BY i.created_at DESC, i.id DESC
+     LIMIT 1`,
+    [userId]
+  );
+  if (!row) {
+    return { unlocked: false, level: null };
+  }
+  return { unlocked: true, level: row.level || 'L1' };
 }
 
 function ensureDailyCheckinsTable() {
@@ -109,21 +127,20 @@ function ensureDailyCheckinsTable() {
 }
 
 function quoteAmounts(level) {
-  const levelBonus = getLevelBonus(level);
-  const completeBonus = COMPLETE_BONUS;
+  const total = getLevelBonus(level);
   return {
-    levelBonus,
-    completeBonus,
-    total: Math.round((levelBonus + completeBonus) * 100) / 100
+    levelBonus: total,
+    completeBonus: 0,
+    total
   };
 }
 
 module.exports = {
-  COMPLETE_BONUS,
   getZambiaDate,
   getLevelBonus,
   getPublicPuzzle,
-  isValidPuzzlePath,
+  isValidPuzzleSelection,
+  getDailyCheckEligibility,
   quoteAmounts,
   ensureDailyCheckinsTable,
   levelNumber
