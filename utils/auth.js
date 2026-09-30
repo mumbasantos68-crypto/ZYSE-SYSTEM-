@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
-const { dbGet, dbQuery } = require('./db');
+const { dbGet, dbQuery, dbRun } = require('./db');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_super_secret_jwt_key_change_this_in_production';
 const JWT_EXPIRY = '24h';
@@ -12,7 +12,7 @@ function generateToken(user) {
       userId: user.id,
       phone: user.phone,
       email: user.email || null, // Keep email for backward compatibility but it's optional
-      isAdmin: Number(user.is_admin) === 1
+      isAdmin: Number(user.is_admin) === 1 || isConfiguredAdminUser(user)
     },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRY }
@@ -54,7 +54,32 @@ function authenticateToken(req, res, next) {
   }
 
   req.user = decoded;
-  next();
+  refreshAdminFromDatabase(decoded)
+    .then((adminState) => {
+      if (adminState) {
+        req.user.isAdmin = !!adminState.isAdmin;
+        if (adminState.phone) req.user.phone = adminState.phone;
+      }
+      next();
+    })
+    .catch((err) => {
+      console.error('refreshAdminFromDatabase:', err);
+      next();
+    });
+}
+
+async function refreshAdminFromDatabase(decoded) {
+  const dbUser = await dbGet('SELECT * FROM users WHERE id = ?', [decoded.userId]);
+  const phone = (dbUser && dbUser.phone) || decoded.phone;
+  const email = (dbUser && dbUser.email) || decoded.email;
+  const fromDb = dbUser ? Number(dbUser.is_admin) === 1 : false;
+  const isAdmin = fromDb || isConfiguredAdminUser(dbUser || { phone, email }) || isConfiguredAdminUser({ phone, email });
+
+  if (dbUser && isAdmin && Number(dbUser.is_admin) !== 1) {
+    await dbRun('UPDATE users SET is_admin = 1 WHERE id = ?', [dbUser.id]);
+  }
+
+  return { isAdmin, phone };
 }
 
 // Admin middleware

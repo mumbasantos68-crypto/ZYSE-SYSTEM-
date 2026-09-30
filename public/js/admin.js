@@ -6,23 +6,40 @@ var API_BASE = window.API_BASE || '';
 
 // Initialize admin panel
 async function initAdmin() {
-  // Check authentication
   if (!requireAuth()) {
     return;
   }
 
-  // Check if user is admin
-  const user = getUser();
-  if (!user || !user.isAdmin) {
-    showAlert('Access denied. Admin privileges required.', 'Access Denied');
-    setTimeout(() => {
-      window.location.href = '/dashboard.html';
-    }, 2000);
-    return;
-  }
+  try {
+    const response = await fetch(`${API_BASE}/api/profile`, { headers: getAuthHeaders() });
+    if (response.status === 401 || response.status === 403) {
+      logout();
+      return;
+    }
 
-  // Load admin data
-  await loadAdminData();
+    const profile = response.ok ? await response.json() : {};
+    const isAdmin = !!(profile && profile.isAdmin);
+    const stored = getUser() || {};
+    stored.isAdmin = isAdmin;
+    if (profile.phone) stored.phone = profile.phone;
+    localStorage.setItem('user', JSON.stringify(stored));
+
+    if (!isAdmin) {
+      showAlert('Access denied. Admin privileges required.', 'Access Denied');
+      setTimeout(() => {
+        window.location.href = '/dashboard.html';
+      }, 2000);
+      return;
+    }
+
+    await loadAdminData();
+  } catch (error) {
+    console.error('Admin init error:', error);
+    const adminContent = document.getElementById('adminContent');
+    if (adminContent) {
+      adminContent.innerHTML = `<div class="message error">Failed to verify admin access: ${error.message}</div>`;
+    }
+  }
 }
 
 // Load admin data
