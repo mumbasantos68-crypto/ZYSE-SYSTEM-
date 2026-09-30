@@ -183,56 +183,53 @@ async function loadHomeSection() {
 
   const renderHome = (announcementsHTML) => {
   homeContent.innerHTML = `
-    <div style="background: linear-gradient(135deg, #007BFF 0%, #0056b3 100%); color: white; padding: 40px; border-radius: 10px; margin-bottom: 30px; text-align: center;">
-      <h2 style="font-size: 2.5rem; margin-bottom: 20px; color: white;">Welcome Back!</h2>
-      <p style="font-size: 1.2rem; margin-bottom: 30px;">Empowering Youth Through Digital Investment</p>
-      
-      <div style="background: rgba(255,255,255,0.1); border-radius: 10px; padding: 20px; margin: 20px 0; min-height: 60px; display: flex; align-items: center; justify-content: center;">
-        <div id="homeSlideshow" style="font-size: 1.3rem; transition: opacity 0.3s;">Loading...</div>
-      </div>
-    </div>
-
-    <div id="homeAnnouncements">${announcementsHTML || ''}</div>
-
-    <div style="background: white; padding: 30px; border-radius: 10px; margin-bottom: 20px;">
-      <h3 style="color: #007BFF; margin-bottom: 20px;">Quick Actions</h3>
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-        <button class="btn" onclick="showSection('levels')" style="padding: 20px; text-align: center;">
-          <div style="font-size: 2rem; margin-bottom: 10px;">⭐</div>
-          <div>View Levels</div>
-        </button>
-        <button class="btn btn-success" onclick="showSection('dashboard')" style="padding: 20px; text-align: center;">
-          <div style="font-size: 2rem; margin-bottom: 10px;">📊</div>
-          <div>My Investments</div>
-        </button>
-        <button class="btn btn-secondary" onclick="showSection('me')" style="padding: 20px; text-align: center;">
-          <div style="font-size: 2rem; margin-bottom: 10px;">👤</div>
-          <div>My Profile</div>
-        </button>
-      </div>
-    </div>
-
-    <div style="background: white; padding: 30px; border-radius: 10px;">
-      <h3 style="color: #007BFF; margin-bottom: 20px; text-align: center;">Youth Empowerment</h3>
-      <div id="youthImageSlideshow" style="width: 100%; max-width: 800px; height: 450px; margin: 0 auto 20px; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); position: relative; background: #000;">
-        <img 
-          id="youthSlideshowImage" 
-          src="/images/medium-shot-smiley-friends-with-smartphones.jpg" 
-          alt="Youth using phones"
-          style="width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; transition: opacity 0.8s ease-in-out;"
-        />
-        <div style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px;">
-          <span id="slideDot1" class="slide-dot active" style="width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.8); cursor: pointer; transition: background 0.3s;"></span>
-          <span id="slideDot2" class="slide-dot" style="width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.4); cursor: pointer; transition: background 0.3s;"></span>
-          <span id="slideDot3" class="slide-dot" style="width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.4); cursor: pointer; transition: background 0.3s;"></span>
-          <span id="slideDot4" class="slide-dot" style="width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.4); cursor: pointer; transition: background 0.3s;"></span>
-          <span id="slideDot5" class="slide-dot" style="width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.4); cursor: pointer; transition: background 0.3s;"></span>
+    <div class="home-hub">
+      <section class="home-hero">
+        <div class="home-hero-inner">
+          <span class="home-kicker">Work smart · Work digital</span>
+          <h2>Build your future from your phone</h2>
+          <p>ZYSE helps Zambian youth grow with clear levels, daily progress, and a community that stays active.</p>
+          <div class="home-activity">
+            <span class="home-activity-dot"></span>
+            <div id="homeSlideshow">Live activity loading...</div>
+          </div>
         </div>
+      </section>
+
+      <div id="homeAnnouncements">${announcementsHTML || ''}</div>
+
+      <div class="home-actions">
+        <button type="button" class="home-action" onclick="showSection('levels')">
+          <span class="home-action-icon">★</span>
+          <strong>Levels</strong>
+          <span>Pick a package and grow</span>
+        </button>
+        <button type="button" class="home-action" onclick="showSection('dashboard')">
+          <span class="home-action-icon">▣</span>
+          <strong>Investments</strong>
+          <span>Track deposits and returns</span>
+        </button>
+        <button type="button" class="home-action" onclick="showSection('me')">
+          <span class="home-action-icon">☺</span>
+          <strong>Profile</strong>
+          <span>Wallet, phone and settings</span>
+        </button>
       </div>
-      <p style="color: #6c757d; line-height: 1.8; text-align: center; max-width: 600px; margin: 0 auto;">
-        Join thousands of Zambian youth who are building their future through smart digital investments.
-        Start your journey today and unlock your potential.
-      </p>
+
+      <section class="home-gallery">
+        <h3>Youth in motion</h3>
+        <div class="home-gallery-frame" id="youthImageSlideshow">
+          <img id="youthSlideshowImage" src="/images/medium-shot-smiley-friends-with-smartphones.jpg" alt="Young people using phones">
+          <div style="position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px;">
+            <span id="slideDot1" class="slide-dot" style="width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,0.9); cursor: pointer;"></span>
+            <span id="slideDot2" class="slide-dot" style="width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,0.35); cursor: pointer;"></span>
+            <span id="slideDot3" class="slide-dot" style="width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,0.35); cursor: pointer;"></span>
+            <span id="slideDot4" class="slide-dot" style="width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,0.35); cursor: pointer;"></span>
+            <span id="slideDot5" class="slide-dot" style="width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,0.35); cursor: pointer;"></span>
+          </div>
+        </div>
+        <p>Real faces, real phones, real opportunity. Start a level and keep building with ZYSE.</p>
+      </section>
     </div>
   `;
 
@@ -350,20 +347,14 @@ async function loadHomeSection() {
       const box = document.getElementById('homeAnnouncements');
       if (!box) return;
       box.innerHTML = `
-    <div style="background: white; padding: 30px; border-radius: 10px; margin-bottom: 20px;">
-      <h3 style="color: #007BFF; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
-        <span style="font-size: 1.5rem;">📢</span>
-        <span>Announcements</span>
-      </h3>
+    <div class="home-announce-card">
+      <h3>Announcements</h3>
       ${announcements.map(a => `
-        <div style="border-left: 4px solid ${a.priority >= 7 ? '#dc3545' : a.priority >= 4 ? '#ffc107' : '#007BFF'}; padding: 15px; margin-bottom: 15px; background: ${a.priority >= 7 ? '#fff5f5' : a.priority >= 4 ? '#fffbf0' : '#f8f9fa'}; border-radius: 4px;">
-          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
-            <h4 style="margin: 0; color: #333; font-size: 1.1rem;">${a.title}</h4>
-            ${a.priority > 0 ? `<span style="background: #007BFF; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">Priority ${a.priority}</span>` : ''}
-          </div>
-          ${a.image_path ? `<div style="margin: 10px 0;"><img src="${a.image_path}" alt="${a.title}" style="max-width: 100%; max-height: 400px; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></div>` : ''}
-          <p style="margin: 0; color: #555; white-space: pre-wrap; line-height: 1.6;">${a.content}</p>
-          <small style="color: #999; display: block; margin-top: 10px;">${new Date(a.created_at).toLocaleDateString()}</small>
+        <div class="home-announce-item">
+          <h4>${a.title}</h4>
+          ${a.image_path ? `<div style="margin: 8px 0;"><img src="${a.image_path}" alt="${a.title}" style="max-width: 100%; max-height: 280px; border-radius: 8px;"></div>` : ''}
+          <p style="white-space: pre-wrap; line-height: 1.6;">${a.content}</p>
+          <small>${new Date(a.created_at).toLocaleDateString()}</small>
         </div>
       `).join('')}
     </div>`;
