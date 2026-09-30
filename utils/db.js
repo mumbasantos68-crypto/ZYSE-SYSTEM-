@@ -3,12 +3,25 @@ const path = require('path');
 const bcrypt = require('bcrypt');
 const fs = require('fs');
 
+function resolveDbPath() {
+  if (process.env.DB_PATH) {
+    return path.resolve(process.env.DB_PATH);
+  }
+  const volumeDir = '/data';
+  try {
+    if (fs.existsSync(volumeDir) && fs.statSync(volumeDir).isDirectory()) {
+      return path.join(volumeDir, 'db.sqlite');
+    }
+  } catch (e) {
+    // ignore and fall back
+  }
+  return path.join(__dirname, '..', 'db.sqlite');
+}
+
 // Database file path
-// Allow override via DB_PATH env for Windows I/O issues (e.g. E: drive)
-// If E: drive has I/O issues, try setting DB_PATH to a local drive like C:\temp\db.sqlite
-let DB_PATH = process.env.DB_PATH
-  ? path.resolve(process.env.DB_PATH)
-  : path.join(__dirname, '..', 'db.sqlite');
+// Railway: set DB_PATH=/data/db.sqlite and mount a volume at /data, or the app
+// will use /data/db.sqlite automatically if that folder exists.
+let DB_PATH = resolveDbPath();
 
 // If database is on E: drive and having I/O issues, use a local temp location
 // Check if we're on E: drive and if so, use local drive instead
@@ -62,10 +75,15 @@ function initDB() {
   return new Promise((resolve, reject) => {
     // Check if database file exists and is accessible
     try {
-      // Ensure directory exists
       const dbDir = path.dirname(DB_PATH);
       if (!fs.existsSync(dbDir)) {
         fs.mkdirSync(dbDir, { recursive: true });
+      }
+      const exists = fs.existsSync(DB_PATH);
+      const size = exists ? fs.statSync(DB_PATH).size : 0;
+      console.log(`SQLite path: ${DB_PATH} (${exists ? size + ' bytes' : 'new file'})`);
+      if (!process.env.DB_PATH && !DB_PATH.startsWith('/data')) {
+        console.log('WARNING: No persistent volume detected. Redeploys will wipe user accounts unless you set DB_PATH=/data/db.sqlite and attach a Railway volume at /data.');
       }
       
       // Try to remove any stale journal/WAL files that might be locking the database
@@ -573,10 +591,9 @@ function initializeTables(db, resolve, reject) {
     });
 }
 
-// Seed packages with amounts and rates (L1-L10 system)
+// Seed packages with amounts and rates (L1-L10). Update in place so IDs stay stable.
 function seedPackages(db) {
   return new Promise((resolve, reject) => {
-    // New level-based packages: L1-L10
     const packages = [
       { level: 'L1', amount: 200, dailyIncome: 6 },
       { level: 'L2', amount: 350, dailyIncome: 8 },
@@ -590,43 +607,42 @@ function seedPackages(db) {
       { level: 'L10', amount: 20000, dailyIncome: 600 }
     ];
 
-    // Clear existing packages
-    db.run('DELETE FROM packages', (err) => {
-      if (err) {
-        console.error('Error clearing packages:', err.message);
-        reject(err);
+    let i = 0;
+    function next() {
+      if (i >= packages.length) {
+        console.log('Packages ready (L1-L10)');
+        resolve();
         return;
       }
-
-      // Insert packages with calculated daily rates based on daily income
-      const stmt = db.prepare('INSERT INTO packages (amount, daily_rate, level, daily_income) VALUES (?, ?, ?, ?)');
-      let completed = 0;
-      const total = packages.length;
-      
-      packages.forEach(pkg => {
-        // Calculate daily rate: dailyIncome / amount
-        const dailyRate = pkg.dailyIncome / pkg.amount;
-        stmt.run(pkg.amount, dailyRate, pkg.level, pkg.dailyIncome, (err) => {
-          if (err) {
-            console.error(`Error inserting package ${pkg.level}:`, err.message);
-            reject(err);
-            return;
-          }
-          completed++;
-          if (completed === total) {
-            stmt.finalize((err) => {
-              if (err) {
-                console.error('Error finalizing packages insert:', err.message);
-                reject(err);
-              } else {
-                console.log('Packages seeded successfully (L1-L10)');
-                resolve();
-              }
-            });
-          }
-        });
+      const pkg = packages[i++];
+      const dailyRate = pkg.dailyIncome / pkg.amount;
+      db.get('SELECT id FROM packages WHERE level = ?', [pkg.level], (err, row) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        if (row) {
+          db.run(
+            'UPDATE packages SET amount = ?, daily_rate = ?, daily_income = ? WHERE id = ?',
+            [pkg.amount, dailyRate, pkg.dailyIncome, row.id],
+            (updateErr) => {
+              if (updateErr) reject(updateErr);
+              else next();
+            }
+          );
+        } else {
+          db.run(
+            'INSERT INTO packages (amount, daily_rate, level, daily_income) VALUES (?, ?, ?, ?)',
+            [pkg.amount, dailyRate, pkg.level, pkg.dailyIncome],
+            (insertErr) => {
+              if (insertErr) reject(insertErr);
+              else next();
+            }
+          );
+        }
       });
-    });
+    }
+    next();
   });
 }
 
