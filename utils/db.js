@@ -171,6 +171,24 @@ function initializeTables(db, resolve, reject) {
 
     // Create tables
     db.serialize(() => {
+      db.run(`CREATE TABLE IF NOT EXISTS daily_checkins (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        check_date TEXT NOT NULL,
+        level TEXT,
+        level_bonus REAL NOT NULL,
+        complete_bonus REAL NOT NULL,
+        total_amount REAL NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, check_date)
+      )`, (err) => {
+        if (err) {
+          console.error('Error creating daily_checkins table:', err.message);
+        } else {
+          console.log('Daily checkins table ready');
+        }
+      });
+
       // Users table
       // Note: SQLite doesn't support modifying UNIQUE constraints easily
       // For new databases, phone will be UNIQUE and NOT NULL, email will be optional

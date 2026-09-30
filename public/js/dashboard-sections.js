@@ -133,6 +133,7 @@ function showSection(sectionName) {
     home: { el: 'homeContent', fn: loadHomeSection, refresh: false },
     dashboard: { el: 'dashboardContent', fn: loadDashboardSection, refresh: false },
     levels: { el: 'levelsContent', fn: loadLevelsSection, refresh: false },
+    daily: { el: 'dailyContent', fn: loadDailyCheckSection, refresh: true },
     about: { el: 'aboutContent', fn: loadAboutSection, refresh: false },
     me: { el: 'meContent', fn: loadMeSection, refresh: true },
     withdraw: { el: 'withdrawContent', fn: loadWithdrawSection, refresh: false }
@@ -214,6 +215,11 @@ async function loadHomeSection() {
           <span class="home-action-icon">☺</span>
           <strong>Profile</strong>
           <span>Wallet, phone and settings</span>
+        </button>
+        <button type="button" class="home-action" onclick="showSection('daily')">
+          <span class="home-action-icon">✓</span>
+          <strong>Daily task puzzle</strong>
+          <span>Connect 3 matching dots</span>
         </button>
       </div>
 
@@ -556,6 +562,183 @@ function formatDateTime(dateString) {
     minute: '2-digit'
   });
 }
+
+function escapeDailyHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/"/g, '&quot;');
+}
+
+async function loadDailyCheckSection() {
+  const dailyContent = document.getElementById('dailyContent');
+  if (!dailyContent) {
+    console.error('Daily content container not found');
+    return;
+  }
+
+  showLoading(dailyContent, 'Loading daily check...');
+
+  try {
+    const data = await authenticatedApiCall(`${window.API_BASE || ''}/api/daily-check`, {
+      method: 'GET'
+    });
+
+    const levelBonus = Number(data.levelBonus || 0).toFixed(2);
+    const completeBonus = Number(data.completeBonus || 0).toFixed(2);
+    const total = Number(data.total || 0).toFixed(2);
+
+    if (data.claimed) {
+      dailyContent.innerHTML = `
+        <div class="daily-check-card">
+          <p class="daily-check-kicker">Today ${escapeDailyHtml(data.checkDate || '')}</p>
+          <h2>Daily task puzzle complete</h2>
+          <p>Your level <strong>${escapeDailyHtml(data.level || 'L1')}</strong> bonus plus the K2 complete bonus is already on your main balance.</p>
+          <div class="daily-check-payout">
+            <div><span>Level bonus</span><strong>K${levelBonus}</strong></div>
+            <div><span>Complete bonus</span><strong>K${completeBonus}</strong></div>
+            <div class="daily-check-total"><span>Added today</span><strong>K${Number(data.claimedTotal || data.total || 0).toFixed(2)}</strong></div>
+          </div>
+          <p class="daily-check-note">Come back tomorrow for a new puzzle.</p>
+        </div>
+      `;
+      dailyContent.dataset.loaded = 'true';
+      return;
+    }
+
+    const puzzle = data.puzzle || { id: '', cols: 3, hint: '', cells: [] };
+    const cellsHtml = (puzzle.cells || []).map((color, index) => `
+      <button type="button" class="daily-puzzle-dot daily-puzzle-${escapeDailyHtml(color)}" data-index="${index}" aria-label="${escapeDailyHtml(color)} dot"></button>
+    `).join('');
+
+    dailyContent.innerHTML = `
+      <div class="daily-check-card">
+        <p class="daily-check-kicker">Daily task puzzle · ${escapeDailyHtml(data.checkDate || '')}</p>
+        <h2>Connect at least 3 matching dots</h2>
+        <p>Tap dots that touch and share a colour. Today’s puzzle is different from yesterday. Finish it to add your level bonus plus <strong>K2.00</strong> to your main balance.</p>
+        <div class="daily-check-payout">
+          <div><span>Your level</span><strong>${escapeDailyHtml(data.level || 'L1')}</strong></div>
+          <div><span>Level bonus</span><strong>K${levelBonus}</strong></div>
+          <div><span>Complete bonus</span><strong>K${completeBonus}</strong></div>
+          <div class="daily-check-total"><span>Today if you finish</span><strong>K${total}</strong></div>
+        </div>
+        <div class="daily-check-task">
+          <h3>${escapeDailyHtml(puzzle.hint || 'Connect 3 matching dots that touch.')}</h3>
+          <div class="daily-puzzle-board" id="dailyPuzzleBoard" style="grid-template-columns: repeat(${Number(puzzle.cols) || 3}, 1fr);">
+            ${cellsHtml}
+          </div>
+          <p class="daily-puzzle-status" id="dailyPuzzleStatus">Tap a coloured line of 3 or more.</p>
+          <div class="daily-puzzle-actions">
+            <button type="button" class="btn btn-secondary" id="dailyPuzzleReset">Clear</button>
+            <button type="button" class="btn" id="dailyCheckSubmit" disabled>Complete puzzle and add bonus</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const board = document.getElementById('dailyPuzzleBoard');
+    const statusEl = document.getElementById('dailyPuzzleStatus');
+    const submitBtn = document.getElementById('dailyCheckSubmit');
+    const resetBtn = document.getElementById('dailyPuzzleReset');
+    const cells = puzzle.cells || [];
+    const cols = Number(puzzle.cols) || 3;
+    let path = [];
+    let claiming = false;
+
+    function neighbors(a, b) {
+      const ar = Math.floor(a / cols);
+      const ac = a % cols;
+      const br = Math.floor(b / cols);
+      const bc = b % cols;
+      return Math.abs(ar - br) + Math.abs(ac - bc) === 1;
+    }
+
+    function paint() {
+      board.querySelectorAll('.daily-puzzle-dot').forEach((dot) => {
+        const idx = Number(dot.dataset.index);
+        dot.classList.toggle('is-on', path.includes(idx));
+      });
+      const ready = path.length >= 3;
+      if (submitBtn) submitBtn.disabled = !ready || claiming;
+      if (statusEl) {
+        statusEl.textContent = ready
+          ? `${path.length} connected. Claim your bonus.`
+          : 'Tap matching dots that touch. You need at least 3.';
+      }
+    }
+
+    async function claimPuzzle() {
+      if (path.length < 3 || claiming) return;
+      claiming = true;
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Adding bonus...';
+      }
+      try {
+        const result = await authenticatedApiCall(`${window.API_BASE || ''}/api/daily-check`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ puzzleId: puzzle.id, path })
+        });
+        if (typeof showAlert === 'function') {
+          showAlert(result.message || `K${Number(result.total || 0).toFixed(2)} added to your main balance`, 'Daily task puzzle');
+        }
+        loadDailyCheckSection();
+      } catch (err) {
+        claiming = false;
+        if (submitBtn) {
+          submitBtn.disabled = path.length < 3;
+          submitBtn.textContent = 'Complete puzzle and add bonus';
+        }
+        if (typeof showAlert === 'function') {
+          showAlert(err.message || 'Could not complete the puzzle', 'Daily task puzzle');
+        }
+      }
+    }
+
+    if (board) {
+      board.querySelectorAll('.daily-puzzle-dot').forEach((dot) => {
+        dot.addEventListener('click', () => {
+          const idx = Number(dot.dataset.index);
+          if (path.includes(idx)) {
+            if (path[path.length - 1] === idx) {
+              path.pop();
+            }
+            paint();
+            return;
+          }
+          if (path.length === 0) {
+            path = [idx];
+          } else {
+            const last = path[path.length - 1];
+            if (cells[idx] === cells[last] && neighbors(last, idx)) {
+              path.push(idx);
+            } else {
+              path = [idx];
+            }
+          }
+          paint();
+        });
+      });
+    }
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => {
+        path = [];
+        paint();
+      });
+    }
+    if (submitBtn) {
+      submitBtn.addEventListener('click', claimPuzzle);
+    }
+    paint();
+    dailyContent.dataset.loaded = 'true';
+  } catch (error) {
+    console.error('Error loading daily check:', error);
+    showError(dailyContent, error.message, () => loadDailyCheckSection());
+  }
+}
+
+window.loadDailyCheckSection = loadDailyCheckSection;
 
 // Load Levels Section
 async function loadLevelsSection() {
@@ -2639,7 +2822,7 @@ function handleHashNavigation() {
   const hash = window.location.hash.replace('#', '');
     if (hash && hash.startsWith('section-')) {
       const sectionName = hash.replace('section-', '');
-      if (['home', 'dashboard', 'levels', 'about', 'me', 'withdraw'].includes(sectionName)) {
+      if (['home', 'dashboard', 'levels', 'daily', 'about', 'me', 'withdraw'].includes(sectionName)) {
         showSection(sectionName);
         return true;
       }

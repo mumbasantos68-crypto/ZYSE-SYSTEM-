@@ -6,6 +6,7 @@ const cron = require('node-cron');
 const { initDB, dbQuery, dbRun, dbGet, dbTransaction } = require('./utils/db');
 const { authenticateToken, requireAdmin, getUserByEmail, getUserByPhone, getUserById, hashPassword, comparePassword, generateToken, normalizeZambianPhone, isConfiguredAdminUser } = require('./utils/auth');
 const { initializePayment, verifyPayment, generateReference } = require('./utils/payments');
+const { getZambiaDate, getPublicPuzzle, isValidPuzzlePath, quoteAmounts } = require('./utils/dailyCheckin');
 const nodemailer = require('nodemailer');
 const { body, validationResult } = require('express-validator');
 const multer = require('multer');
@@ -503,6 +504,84 @@ app.post('/api/login', [
 // ==================== PACKAGE ROUTES ====================
 
 // Get all packages
+app.get('/api/daily-check', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const user = await dbGet('SELECT id, level FROM users WHERE id = ?', [userId]);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const checkDate = getZambiaDate();
+    const existing = await dbGet(
+      'SELECT id, total_amount, level_bonus, complete_bonus FROM daily_checkins WHERE user_id = ? AND check_date = ?',
+      [userId, checkDate]
+    );
+    const amounts = quoteAmounts(user.level);
+    res.json({
+      checkDate,
+      claimed: !!existing,
+      level: user.level || 'L1',
+      levelBonus: amounts.levelBonus,
+      completeBonus: amounts.completeBonus,
+      total: amounts.total,
+      claimedTotal: existing ? existing.total_amount : null,
+      puzzle: existing ? null : getPublicPuzzle(checkDate)
+    });
+  } catch (error) {
+    console.error('Daily check status error:', error);
+    res.status(500).json({ error: 'Failed to load daily check' });
+  }
+});
+
+app.post('/api/daily-check', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { puzzleId, path } = req.body || {};
+    const user = await dbGet('SELECT id, level FROM users WHERE id = ?', [userId]);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const checkDate = getZambiaDate();
+    const existing = await dbGet(
+      'SELECT id FROM daily_checkins WHERE user_id = ? AND check_date = ?',
+      [userId, checkDate]
+    );
+    if (existing) {
+      return res.status(400).json({ error: 'You already completed today\'s daily check' });
+    }
+    if (!isValidPuzzlePath(checkDate, puzzleId, path)) {
+      return res.status(400).json({ error: 'Connect at least 3 matching dots that touch' });
+    }
+    const amounts = quoteAmounts(user.level);
+    const levelLabel = user.level || 'L1';
+    await dbTransaction([
+      {
+        query: 'INSERT INTO daily_checkins (user_id, check_date, level, level_bonus, complete_bonus, total_amount) VALUES (?, ?, ?, ?, ?, ?)',
+        params: [userId, checkDate, levelLabel, amounts.levelBonus, amounts.completeBonus, amounts.total]
+      },
+      {
+        query: 'INSERT INTO transactions (user_id, type, amount, date) VALUES (?, ?, ?, datetime("now"))',
+        params: [userId, 'bonus', amounts.total]
+      }
+    ]);
+    res.json({
+      success: true,
+      checkDate,
+      level: levelLabel,
+      levelBonus: amounts.levelBonus,
+      completeBonus: amounts.completeBonus,
+      total: amounts.total,
+      message: `K${amounts.total.toFixed(2)} added to your main balance`
+    });
+  } catch (error) {
+    if (error && (error.code === 'SQLITE_CONSTRAINT' || String(error.message || '').includes('UNIQUE'))) {
+      return res.status(400).json({ error: 'You already completed today\'s daily check' });
+    }
+    console.error('Daily check claim error:', error);
+    res.status(500).json({ error: 'Failed to complete daily check' });
+  }
+});
+
 app.get('/api/packages', async (req, res) => {
   try {
     const packages = await dbQuery('SELECT * FROM packages ORDER BY amount ASC');
