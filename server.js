@@ -489,7 +489,7 @@ app.post('/api/login', [
         id: user.id,
         phone: user.phone,
         email: userEmail,
-        isAdmin: Number(user.is_admin) === 1
+        isAdmin: Number(user.is_admin) === 1 || isConfiguredAdminUser(user)
       }
     });
   } catch (error) {

@@ -2721,6 +2721,23 @@ function initDashboardSections() {
   console.log('User authenticated, loading sections...');
   const user = getUser();
   console.log('Current user:', user);
+
+  if (typeof setAdminUiVisible === 'function') {
+    setAdminUiVisible(typeof isAdminUser === 'function' ? isAdminUser(user) : false);
+  }
+
+  authenticatedApiCall(`${window.API_BASE || ''}/api/profile`, { method: 'GET' })
+    .then((profile) => {
+      const isAdmin = !!(profile && profile.isAdmin);
+      const stored = getUser() || {};
+      stored.isAdmin = isAdmin;
+      if (profile.phone) stored.phone = profile.phone;
+      localStorage.setItem('user', JSON.stringify(stored));
+      if (typeof setAdminUiVisible === 'function') setAdminUiVisible(isAdmin);
+    })
+    .catch((err) => {
+      console.log('Could not refresh admin status:', err.message);
+    });
   
   // Check if containers exist
   const homeContent = document.getElementById('homeContent');

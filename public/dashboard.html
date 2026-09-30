@@ -226,7 +226,7 @@
         <li><a href="#" onclick="showSection('levels'); if(window.innerWidth <= 768) window.closeMobileMenu(); return false;" id="nav-levels">⭐ Levels</a></li>
         <li><a href="#" onclick="showSection('about'); if(window.innerWidth <= 768) window.closeMobileMenu(); return false;" id="nav-about">ℹ️ About</a></li>
         <li><a href="#" onclick="showSection('me'); if(window.innerWidth <= 768) window.closeMobileMenu(); return false;" id="nav-me">👤 Me</a></li>
-        <li>
+        <li id="adminNavItem" style="display: none;">
           <a href="/admin.html" id="nav-admin">🛡️ Admin Panel</a>
         </li>
         <li><a href="#" onclick="if(window.innerWidth <= 768) window.closeMobileMenu(); logout(); return false;">🚪 Logout</a></li>
@@ -235,7 +235,7 @@
 
     <!-- Main Content Area -->
     <div class="main-content">
-      <div class="admin-shortcut-bar">
+      <div class="admin-shortcut-bar" id="adminShortcutBar" style="display: none;">
         <a href="/admin.html" class="btn admin-entry-btn">Admin Panel</a>
       </div>
       <!-- Home Section -->
@@ -303,9 +303,9 @@
 
   <script src="/js/modals.js?v=1"></script>
   <script src="/js/api-utils.js?v=1"></script>
-  <script src="/js/auth.js?v=7"></script>
-  <script src="/js/dashboard.js?v=7"></script>
-  <script src="/js/dashboard-sections.js?v=7"></script>
+  <script src="/js/auth.js?v=8"></script>
+  <script src="/js/dashboard.js?v=8"></script>
+  <script src="/js/dashboard-sections.js?v=8"></script>
   <script>
     // Mobile menu toggle function
     function toggleMobileMenu() {

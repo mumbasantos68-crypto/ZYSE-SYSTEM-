@@ -65,7 +65,7 @@ async function handleLogin(e) {
 
     // Store token and user data
     // Clean up user data - remove admin email if user is not admin
-    const userData = { ...data.user };
+    const userData = { ...data.user, isAdmin: data.user.isAdmin === true || data.user.isAdmin === 1 || data.user.isAdmin === '1' };
     if (!userData.isAdmin && userData.email === 'admin@zambia-youth.com') {
       userData.email = null; // Remove admin email from localStorage for non-admin users
       console.log('Removed admin email from user data for non-admin user');
@@ -250,6 +250,30 @@ function getToken() {
 function getUser() {
   const userStr = localStorage.getItem('user');
   return userStr ? JSON.parse(userStr) : null;
+}
+
+function isAdminUser(user) {
+  const current = user || getUser();
+  if (current && (current.isAdmin === true || current.isAdmin === 1 || current.isAdmin === '1')) {
+    return true;
+  }
+  try {
+    const token = getToken();
+    if (!token) return false;
+    const parts = token.split('.');
+    if (parts.length < 2) return false;
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return payload.isAdmin === true || payload.isAdmin === 1;
+  } catch (e) {
+    return false;
+  }
+}
+
+function setAdminUiVisible(visible) {
+  const nav = document.getElementById('adminNavItem');
+  const bar = document.getElementById('adminShortcutBar');
+  if (nav) nav.style.display = visible ? '' : 'none';
+  if (bar) bar.style.display = visible ? 'flex' : 'none';
 }
 
 // Check if user is authenticated
