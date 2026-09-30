@@ -59,6 +59,16 @@ body.auth-page::after {
   pointer-events: none;
 }
 
+@media (max-width: 768px) {
+  body.auth-page::before {
+    background-attachment: scroll;
+    background-size: 100% auto;
+    background-position: center top;
+    min-height: 100%;
+    opacity: 0.62;
+  }
+}
+
 body.app-shell {
   background: #eef2f6;
 }
