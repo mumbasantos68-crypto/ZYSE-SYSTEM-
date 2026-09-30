@@ -172,13 +172,11 @@ async function loadHomeSection() {
     const phone = generatePhoneNumber();
     const level = generateLevel();
     const slideshow = document.getElementById('homeSlideshow');
-    if (slideshow) {
-      slideshow.style.opacity = '0';
-      setTimeout(() => {
-        slideshow.textContent = `${phone} has activated in ${level}`;
-        slideshow.style.opacity = '1';
-      }, 250);
-    }
+    if (!slideshow) return;
+    slideshow.classList.remove('is-in');
+    slideshow.innerHTML = `<span class="act-phone">${phone}</span><span class="act-copy">has activated</span><span class="act-level">${level}</span>`;
+    void slideshow.offsetWidth;
+    slideshow.classList.add('is-in');
   }
 
   const renderHome = (announcementsHTML) => {
@@ -187,11 +185,14 @@ async function loadHomeSection() {
       <section class="home-hero">
         <div class="home-hero-inner">
           <span class="home-kicker">Work smart · Work digital</span>
-          <h2>Build your future from your phone</h2>
-          <p>ZYSE helps Zambian youth grow with clear levels, daily progress, and a community that stays active.</p>
+          <h2>Your phone. Your pace.<br><span>Your future.</span></h2>
+          <p>Clear levels. Daily progress. Youth moving together from one screen.</p>
           <div class="home-activity">
-            <span class="home-activity-dot"></span>
-            <div id="homeSlideshow">Live activity loading...</div>
+            <span class="home-live-badge">LIVE</span>
+            <span class="home-activity-line" aria-hidden="true"></span>
+            <div class="home-activity-copy">
+              <div id="homeSlideshow" class="home-activity-text">Watch members activate levels</div>
+            </div>
           </div>
         </div>
       </section>
@@ -219,16 +220,16 @@ async function loadHomeSection() {
       <section class="home-gallery">
         <h3>Youth in motion</h3>
         <div class="home-gallery-frame" id="youthImageSlideshow">
-          <img id="youthSlideshowImage" src="/images/medium-shot-smiley-friends-with-smartphones.jpg" alt="Young people using phones">
+          <img id="youthSlideshowImage" src="/images/medium-shot-student-with-smartphone.jpg" alt="ZYSE member using a phone">
+          <div class="home-gallery-caption" id="youthCaption">Client faces — members on their phones</div>
           <div style="position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px;">
             <span id="slideDot1" class="slide-dot" style="width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,0.9); cursor: pointer;"></span>
             <span id="slideDot2" class="slide-dot" style="width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,0.35); cursor: pointer;"></span>
             <span id="slideDot3" class="slide-dot" style="width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,0.35); cursor: pointer;"></span>
             <span id="slideDot4" class="slide-dot" style="width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,0.35); cursor: pointer;"></span>
-            <span id="slideDot5" class="slide-dot" style="width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,0.35); cursor: pointer;"></span>
           </div>
         </div>
-        <p>Real faces, real phones, real opportunity. Start a level and keep building with ZYSE.</p>
+        <p>Client faces of ZYSE — young members on their phones, growing level by level.</p>
       </section>
     </div>
   `;
@@ -244,65 +245,44 @@ async function loadHomeSection() {
     
     // Setup image slideshow
     const youthImages = [
-      '/images/medium-shot-smiley-friends-with-smartphones.jpg',
-      '/images/group-young-african-friends-with-facemasks-using-their-phones-park.jpg',
-      '/images/medium-shot-people-relaxing-outdoors.jpg',
-      '/images/group-four-african-american-girls-sitting-bench-outdoor-looking-mobile-phones-black-white.jpg',
-      '/images/medium-shot-student-with-smartphone.jpg'
+      { src: '/images/medium-shot-student-with-smartphone.jpg', caption: 'A member checking progress on the phone' },
+      { src: '/images/medium-shot-smiley-friends-with-smartphones.jpg', caption: 'Friends growing together on ZYSE' },
+      { src: '/images/group-young-african-friends-with-facemasks-using-their-phones-park.jpg', caption: 'Youth in the community, phones in hand' },
+      { src: '/images/group-four-african-american-girls-sitting-bench-outdoor-looking-mobile-phones-black-white.jpg', caption: 'Client faces behind every level' }
     ];
     
     let currentImageIndex = 0;
     const slideshowImage = document.getElementById('youthSlideshowImage');
+    const youthCaption = document.getElementById('youthCaption');
+
+    function showYouthSlide(index) {
+      const slide = youthImages[index];
+      if (!slideshowImage || !slide) return;
+      currentImageIndex = index;
+      slideshowImage.src = slide.src;
+      slideshowImage.alt = slide.caption;
+      if (youthCaption) youthCaption.textContent = slide.caption;
+      document.querySelectorAll('.slide-dot').forEach((dot, i) => {
+        dot.style.background = i === index ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.35)';
+      });
+    }
     
     function updateYouthSlideshow() {
       if (!slideshowImage) return;
-      
-      // Fade out
       slideshowImage.style.opacity = '0';
-      
       setTimeout(() => {
-        // Change image
-        currentImageIndex = (currentImageIndex + 1) % youthImages.length;
-        slideshowImage.src = youthImages[currentImageIndex];
-        
-        // Update dots
-        document.querySelectorAll('.slide-dot').forEach((dot, index) => {
-          if (index === currentImageIndex) {
-            dot.style.background = 'rgba(255,255,255,0.8)';
-          } else {
-            dot.style.background = 'rgba(255,255,255,0.4)';
-          }
-        });
-        
-        // Fade in
+        showYouthSlide((currentImageIndex + 1) % youthImages.length);
         slideshowImage.style.opacity = '1';
       }, 400);
     }
     
     function goToSlide(index) {
       if (!slideshowImage) return;
-      currentImageIndex = index;
-      
-      // Fade out
       slideshowImage.style.opacity = '0';
-      
       setTimeout(() => {
-        slideshowImage.src = youthImages[currentImageIndex];
-        
-        // Update dots
-        document.querySelectorAll('.slide-dot').forEach((dot, idx) => {
-          if (idx === currentImageIndex) {
-            dot.style.background = 'rgba(255,255,255,0.8)';
-          } else {
-            dot.style.background = 'rgba(255,255,255,0.4)';
-          }
-        });
-        
-        // Fade in
+        showYouthSlide(index);
         slideshowImage.style.opacity = '1';
       }, 400);
-      
-      // Reset interval
       if (window.youthSlideshowInterval) {
         clearInterval(window.youthSlideshowInterval);
       }
