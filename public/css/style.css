@@ -62,10 +62,48 @@ body.auth-page::after {
 @media (max-width: 768px) {
   body.auth-page::before {
     background-attachment: scroll;
-    background-size: 100% auto;
-    background-position: center top;
-    min-height: 100%;
-    opacity: 0.62;
+    background-size: cover;
+    background-position: center 42%;
+    opacity: 0.48;
+  }
+
+  body.auth-page::after {
+    background: linear-gradient(
+      180deg,
+      rgba(8, 16, 32, 0.38) 0%,
+      rgba(8, 16, 32, 0.62) 48%,
+      rgba(8, 16, 32, 0.86) 100%
+    );
+  }
+
+  body.auth-page .nav-links {
+    background: transparent;
+    border-bottom: none;
+    padding: 12px 8px 0;
+  }
+
+  body.auth-page .nav-links a {
+    color: #ffffff;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
+  }
+
+  body.auth-page #app {
+    padding: 0 16px 96px;
+  }
+
+  .branding {
+    padding: 12px 8px 16px;
+    margin-bottom: 8px;
+  }
+
+  .branding h1 {
+    font-size: 1.45rem;
+    letter-spacing: 1px;
+    line-height: 1.25;
+  }
+
+  .auth-footer {
+    padding: 10px 12px;
   }
 }
 
@@ -450,7 +488,9 @@ body.app-shell {
 /* Mobile Responsive */
 @media (max-width: 768px) {
   .branding h1 {
-    font-size: 1.8rem;
+    font-size: 1.45rem;
+    letter-spacing: 1px;
+    line-height: 1.25;
   }
 
   .branding .tagline {
