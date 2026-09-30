@@ -803,18 +803,20 @@ async function loadLevelsSection() {
     levelsContent.innerHTML = `
       ${currentActiveLevel ? `
         <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; text-align: center;">
-          <strong style="font-size: 1.2rem;">Your Current Level: ${currentActiveLevel}</strong>
-          <p style="margin: 10px 0 0 0; opacity: 0.9;">You can switch to any other level below. Your current investment will be terminated when you switch.</p>
+          <strong style="font-size: 1.2rem;">You are on ${currentActiveLevel}</strong>
+          <p style="margin: 10px 0 0 0; opacity: 0.9;">Your funds are already at work. One level at a time — switch below only if you are ready to grow.</p>
         </div>
       ` : `
         <div style="background: linear-gradient(135deg, #007BFF 0%, #0056b3 100%); color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; text-align: center;">
-          <strong style="font-size: 1.2rem;">Choose Your Investment Level</strong>
-          <p style="margin: 10px 0 0 0; opacity: 0.9;">Select any level that suits your budget. You can only be on one level at a time.</p>
+          <strong style="font-size: 1.2rem;">Stand with Zambia. Earn every day.</strong>
+          <p style="margin: 10px 0 0 0; opacity: 0.9;">Youth capital. National projects. Daily awards for you.</p>
         </div>
       `}
-      <p style="text-align: center; color: #6c757d; margin-bottom: 30px; max-width: 600px; margin-left: auto; margin-right: auto;">
-        Select any investment level that matches your budget. Each level offers different daily returns. You can switch levels anytime - your current investment will be terminated and replaced with the new one.
-      </p>
+      <div style="text-align: center; color: #334155; margin-bottom: 28px; max-width: 720px; margin-left: auto; margin-right: auto; line-height: 1.65;">
+        <p style="margin: 0 0 12px; font-size: 1.02rem;">The Government of Zambia, through Article 3 and the amended Youth Policy, opens these levels so young people can invest. Money placed here is used as cash for government projects that keep the country moving.</p>
+        <p style="margin: 0 0 12px;">When you invest, you let the nation put your funds to work — and you receive <strong>daily awards</strong> for that trust. Start on a level that fits you. Grow as you grow.</p>
+        <p style="margin: 0; color: #64748b; font-size: 0.92rem;">Choose one level. You can hold only one at a time.</p>
+      </div>
       <div style="display: grid; gap: 20px;">
         ${packages.map(pkg => {
           const level = pkg.level || 'L1';
