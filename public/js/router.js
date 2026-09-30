@@ -39,7 +39,8 @@ function renderLogin() {
         <button type="submit" class="btn">Login</button>
       </form>
       <div class="form-link">
-        <p>Don't have an account? <a href="#/register">Register here</a></p>
+        <p>Don't have an account?</p>
+        <a href="#/register" class="btn btn-register">Register here</a>
       </div>
     </div>
     <footer class="auth-footer">
