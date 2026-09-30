@@ -166,6 +166,20 @@ async function getUserById(id) {
   return await dbGet('SELECT id, email, phone, created_at, is_admin FROM users WHERE id = ?', [id]);
 }
 
+async function getRequestUser(req) {
+  const decoded = req.user || {};
+  const rawId = decoded.userId != null ? decoded.userId : decoded.id;
+  if (rawId != null && String(rawId).trim() !== '') {
+    const byId = await dbGet('SELECT * FROM users WHERE id = ?', [rawId]);
+    if (byId) return byId;
+  }
+  if (decoded.phone) {
+    const byPhone = await getUserByPhone(decoded.phone);
+    if (byPhone) return byPhone;
+  }
+  return null;
+}
+
 function getConfiguredAdminPhone() {
   return String(process.env.ADMIN_PHONE || '0774510295').trim();
 }
@@ -194,6 +208,7 @@ module.exports = {
   getUserByEmail,
   getUserByPhone,
   getUserById,
+  getRequestUser,
   normalizeZambianPhone,
   isConfiguredAdminUser,
   JWT_SECRET

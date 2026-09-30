@@ -1,3 +1,5 @@
+const { dbRun } = require('./db');
+
 const COMPLETE_BONUS = 2;
 
 const PUZZLES = [
@@ -92,6 +94,20 @@ function isValidPuzzlePath(dateStr, puzzleId, path) {
   return true;
 }
 
+function ensureDailyCheckinsTable() {
+  return dbRun(`CREATE TABLE IF NOT EXISTS daily_checkins (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    check_date TEXT NOT NULL,
+    level TEXT,
+    level_bonus REAL NOT NULL,
+    complete_bonus REAL NOT NULL,
+    total_amount REAL NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, check_date)
+  )`);
+}
+
 function quoteAmounts(level) {
   const levelBonus = getLevelBonus(level);
   const completeBonus = COMPLETE_BONUS;
@@ -109,5 +125,6 @@ module.exports = {
   getPublicPuzzle,
   isValidPuzzlePath,
   quoteAmounts,
+  ensureDailyCheckinsTable,
   levelNumber
 };

@@ -4,9 +4,9 @@ const path = require('path');
 const cors = require('cors');
 const cron = require('node-cron');
 const { initDB, dbQuery, dbRun, dbGet, dbTransaction } = require('./utils/db');
-const { authenticateToken, requireAdmin, getUserByEmail, getUserByPhone, getUserById, hashPassword, comparePassword, generateToken, normalizeZambianPhone, isConfiguredAdminUser } = require('./utils/auth');
+const { authenticateToken, requireAdmin, getUserByEmail, getUserByPhone, getUserById, getRequestUser, hashPassword, comparePassword, generateToken, normalizeZambianPhone, isConfiguredAdminUser } = require('./utils/auth');
 const { initializePayment, verifyPayment, generateReference } = require('./utils/payments');
-const { getZambiaDate, getPublicPuzzle, isValidPuzzlePath, quoteAmounts } = require('./utils/dailyCheckin');
+const { getZambiaDate, getPublicPuzzle, isValidPuzzlePath, quoteAmounts, ensureDailyCheckinsTable } = require('./utils/dailyCheckin');
 const nodemailer = require('nodemailer');
 const { body, validationResult } = require('express-validator');
 const multer = require('multer');
@@ -506,11 +506,12 @@ app.post('/api/login', [
 // Get all packages
 app.get('/api/daily-check', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const user = await dbGet('SELECT id, level FROM users WHERE id = ?', [userId]);
+    await ensureDailyCheckinsTable();
+    const user = await getRequestUser(req);
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: 'User not found. Log out and log in again.' });
     }
+    const userId = user.id;
     const checkDate = getZambiaDate();
     const existing = await dbGet(
       'SELECT id, total_amount, level_bonus, complete_bonus FROM daily_checkins WHERE user_id = ? AND check_date = ?',
@@ -535,12 +536,13 @@ app.get('/api/daily-check', authenticateToken, async (req, res) => {
 
 app.post('/api/daily-check', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.userId;
+    await ensureDailyCheckinsTable();
+    const user = await getRequestUser(req);
     const { puzzleId, path } = req.body || {};
-    const user = await dbGet('SELECT id, level FROM users WHERE id = ?', [userId]);
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: 'User not found. Log out and log in again.' });
     }
+    const userId = user.id;
     const checkDate = getZambiaDate();
     const existing = await dbGet(
       'SELECT id FROM daily_checkins WHERE user_id = ? AND check_date = ?',
