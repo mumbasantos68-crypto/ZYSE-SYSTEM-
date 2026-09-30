@@ -153,14 +153,14 @@ function renderAdminDashboard(users, investments, stats, withdrawalRequests, dep
               <td>${formatDateTime(user.created_at)}</td>
               <td>${user.is_admin ? 'Yes' : 'No'}</td>
               <td>
-                <button class="btn btn-warning" onclick="resetUserPassword(${user.id}, '${(getUserPhone(user) || user.email || 'User').replace(/'/g, "\\'")}', this)" style="padding: 5px 10px; font-size: 12px; margin-right: 5px;" title="Reset Password">
-                  🔑 Reset Password
+                <button class="btn btn-warning" onclick="resetUserPassword(${user.id}, '${(getUserPhone(user) || user.email || 'User').replace(/'/g, "\\'")}', this)" title="Reset Password">
+                  Reset password
                 </button>
                 ${!user.is_admin ? `
-                  <button class="btn btn-danger" onclick="deleteUser(${user.id}, '${(getUserPhone(user) || user.email || 'User').replace(/'/g, "\\'")}')" style="padding: 5px 10px; font-size: 12px;" title="Delete User">
-                    🗑️ Delete
+                  <button class="btn btn-danger" onclick="deleteUser(${user.id}, '${(getUserPhone(user) || user.email || 'User').replace(/'/g, "\\'")}')" title="Delete User">
+                    Delete
                   </button>
-                ` : '<span style="color: #6c757d; font-size: 12px;">Admin</span>'}
+                ` : '<span class="empty-state">Admin</span>'}
               </td>
             </tr>
           `).join('')}
@@ -197,14 +197,14 @@ function renderAdminDashboard(users, investments, stats, withdrawalRequests, dep
               <td>${formatDate(investment.maturity_date)}</td>
               <td>K${investment.total_accruals.toFixed(2)}</td>
               <td>
-                <select onchange="updateInvestmentStatus(${investment.id}, this.value)" style="padding: 5px; color: #333; background: #fff;">
+                <select onchange="updateInvestmentStatus(${investment.id}, this.value)">
                   <option value="active" ${investment.status === 'active' ? 'selected' : ''}>Active</option>
                   <option value="matured" ${investment.status === 'matured' ? 'selected' : ''}>Matured</option>
                   <option value="withdrawn" ${investment.status === 'withdrawn' ? 'selected' : ''}>Withdrawn</option>
                 </select>
               </td>
               <td>
-                <button class="btn btn-success" onclick="viewInvestment(${investment.id})" style="padding: 5px 10px; font-size: 14px;">View</button>
+                <button class="btn btn-success" onclick="viewInvestment(${investment.id})">View</button>
               </td>
             </tr>
           `).join('')}
@@ -215,36 +215,40 @@ function renderAdminDashboard(users, investments, stats, withdrawalRequests, dep
   const pendingRequests = withdrawalRequests.filter(r => r.status === 'pending');
   
     adminContent.innerHTML = `
+    <div class="admin-dash-head">
+      <h2>Control centre</h2>
+      <p>Approve money in and out, manage members, and keep levels moving.</p>
+    </div>
     <div class="stats-grid">
       <div class="stat-card">
         <div class="stat-value">${stats.totalUsers}</div>
-        <div class="stat-label">Total Users</div>
+        <div class="stat-label">Total users</div>
       </div>
       <div class="stat-card">
         <div class="stat-value">${stats.totalInvestments}</div>
-        <div class="stat-label">Total Investments</div>
+        <div class="stat-label">Investments</div>
       </div>
       <div class="stat-card">
         <div class="stat-value">K${stats.totalDeposits.toFixed(2)}</div>
-        <div class="stat-label">Total Deposits</div>
+        <div class="stat-label">Deposits</div>
       </div>
       <div class="stat-card">
         <div class="stat-value">K${stats.totalAccruals.toFixed(2)}</div>
-        <div class="stat-label">Total Accruals</div>
+        <div class="stat-label">Accruals</div>
       </div>
-      <div class="stat-card" style="background: ${pendingRequests.length > 0 ? '#ff9800' : '#4caf50'};">
+      <div class="stat-card ${pendingRequests.length > 0 ? 'is-alert' : 'is-ok'}">
         <div class="stat-value">${pendingRequests.length}</div>
-        <div class="stat-label">Pending Withdrawals</div>
+        <div class="stat-label">Pending withdrawals</div>
       </div>
     </div>
 
     <div class="admin-actions">
-      <button class="btn btn-secondary" onclick="exportUsers()">Export Users CSV</button>
-      <button class="btn btn-secondary" onclick="exportInvestments()">Export Investments CSV</button>
-      <button class="btn" onclick="showAddDailyIncomeModal()">➕ Add Daily Income</button>
-      <button class="btn" onclick="showBulkDailyIncomeByLevelModal()">📈 Bulk Daily by Level</button>
-      <button class="btn btn-success" onclick="showAddBonusModal()">💎 Add Individual Bonus</button>
-      <button class="btn" onclick="showAnnouncementsModal()" style="background: #17a2b8; color: white;">📢 Manage Announcements</button>
+      <button class="btn btn-secondary" onclick="exportUsers()">Export users</button>
+      <button class="btn btn-secondary" onclick="exportInvestments()">Export investments</button>
+      <button class="btn" onclick="showAddDailyIncomeModal()">Add daily income</button>
+      <button class="btn" onclick="showBulkDailyIncomeByLevelModal()">Bulk daily by level</button>
+      <button class="btn btn-success" onclick="showAddBonusModal()">Add individual bonus</button>
+      <button class="btn" onclick="showAnnouncementsModal()">Announcements</button>
     </div>
 
     <div class="admin-tabs" role="tablist">
@@ -254,20 +258,20 @@ function renderAdminDashboard(users, investments, stats, withdrawalRequests, dep
     </div>
 
     <div class="admin-tab-panel" data-tab="approvals">
-    <div class="card mt-20">
-      <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+    <div class="card">
+      <div class="card-header">
         <span>Deposits (${deposits.length})</span>
-        <button class="btn btn-danger" onclick="bulkDeleteDeposits()" style="padding: 8px 15px; font-size: 12px;" id="deleteDepositsBtn" disabled>🗑️ Delete Selected</button>
+        <button class="btn btn-danger" onclick="bulkDeleteDeposits()" id="deleteDepositsBtn" disabled>Delete selected</button>
       </div>
       <div class="table-wrap">
       ${renderDepositsTable(deposits)}
       </div>
     </div>
 
-    <div class="card mt-20">
-      <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-        <span>Withdrawal Requests (${withdrawalRequests.length})</span>
-        <button class="btn btn-danger" onclick="bulkDeleteWithdrawalRequests()" style="padding: 8px 15px; font-size: 12px;" id="deleteRequestsBtn" disabled>🗑️ Delete Selected</button>
+    <div class="card">
+      <div class="card-header">
+        <span>Withdrawal requests (${withdrawalRequests.length})</span>
+        <button class="btn btn-danger" onclick="bulkDeleteWithdrawalRequests()" id="deleteRequestsBtn" disabled>Delete selected</button>
       </div>
       <div class="table-wrap">
       ${renderWithdrawalRequests(withdrawalRequests)}
@@ -276,41 +280,37 @@ function renderAdminDashboard(users, investments, stats, withdrawalRequests, dep
     </div>
 
     <div class="admin-tab-panel" data-tab="users" hidden>
-    <div class="card mt-20">
-      <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
-        <span>All Users (${sortedUsers.length})</span>
-        <div style="display: flex; align-items: center; gap: 10px; flex: 1; max-width: 500px; margin-left: auto;">
-          <input 
-            type="text" 
-            id="userSearchInput" 
-            placeholder="🔍 Search by phone number..." 
-            style="flex: 1; padding: 10px 15px; border: 2px solid #007BFF; border-radius: 5px; font-size: 14px; transition: border-color 0.3s; color: #333; background: #fff;"
+    <div class="card">
+      <div class="card-header">
+        <span>All users (${sortedUsers.length})</span>
+        <div class="admin-card-tools">
+          <input
+            type="text"
+            id="userSearchInput"
+            class="admin-search"
+            placeholder="Search by phone number"
             oninput="filterUsersTable(this.value)"
-            onfocus="this.style.borderColor='#0056b3'; this.style.boxShadow='0 0 0 3px rgba(0,123,255,0.1)';"
-            onblur="this.style.borderColor='#007BFF'; this.style.boxShadow='none';"
           />
-          <button 
-            onclick="clearUserSearch()" 
+          <button
+            type="button"
+            class="btn btn-secondary"
+            onclick="clearUserSearch()"
             id="clearSearchBtn"
-            style="padding: 10px 15px; background: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer; display: none; transition: background 0.3s;"
-            onmouseover="this.style.background='#5a6268'"
-            onmouseout="this.style.background='#6c757d'"
+            style="display: none;"
             title="Clear search"
-          >
-            ✕ Clear
-          </button>
+          >Clear</button>
         </div>
       </div>
       <div id="usersTableContainer" class="table-wrap">
         ${usersHTML}
       </div>
-      <div id="userSearchResults" style="padding: 10px 15px; color: #6c757d; font-size: 0.9rem; display: none;"></div>
+      <div id="userSearchResults" class="admin-dash-head" style="display: none;"></div>
     </div>
     </div>
 
     <div class="admin-tab-panel" data-tab="investments" hidden>
-    <div class="card mt-20">
-      <div class="card-header">All Investments (${investments.length})</div>
+    <div class="card">
+      <div class="card-header">All investments (${investments.length})</div>
       <div class="table-wrap">
       ${investmentsHTML}
       </div>
@@ -330,8 +330,8 @@ function renderDepositsTable(deposits) {
 
   return `
     ${pendingDeposits.length > 0 ? `
-      <div style="margin-bottom: 20px; padding: 15px; background: #fff3cd; border-left: 4px solid #ff9800; border-radius: 4px;">
-        <strong style="color: #856404;">⚠️ ${pendingDeposits.length} Pending Deposit(s) Awaiting Approval</strong>
+      <div class="admin-alert">
+        <strong>${pendingDeposits.length} pending deposit(s) waiting for approval</strong>
       </div>
     ` : ''}
     <table class="table">
@@ -354,7 +354,7 @@ function renderDepositsTable(deposits) {
       </thead>
       <tbody>
         ${deposits.map(deposit => `
-          <tr style="${deposit.status === 'pending' ? 'background-color: #fff3cd;' : ''}">
+          <tr class="${deposit.status === 'pending' ? 'is-pending' : ''}">
             <td>
               <input type="checkbox" class="deposit-checkbox" value="${deposit.investment_id}" id="dep_${deposit.investment_id}" onchange="updateDepositsDeleteButton(); updateSelectedDepositsCount();">
             </td>
@@ -364,7 +364,7 @@ function renderDepositsTable(deposits) {
             <td>K${deposit.amount.toFixed(2)}</td>
             <td>${deposit.level || 'N/A'}</td>
             <td>
-              <code style="background: #f8f9fa; padding: 4px 8px; border-radius: 4px; font-family: monospace;">
+              <code>
                 ${deposit.transaction_txt || 'N/A'}
               </code>
             </td>
@@ -377,22 +377,22 @@ function renderDepositsTable(deposits) {
             <td>${formatDateTime(deposit.deposit_date)}</td>
             <td>
               ${deposit.status === 'pending' ? `
-                <button class="btn btn-success" onclick="processDeposit(${deposit.investment_id}, 'approve')" style="padding: 5px 10px; font-size: 12px; margin-right: 5px;">✓ Approve</button>
-                <button class="btn btn-danger" onclick="processDeposit(${deposit.investment_id}, 'deny')" style="padding: 5px 10px; font-size: 12px;">✗ Deny</button>
+                <button class="btn btn-success" onclick="processDeposit(${deposit.investment_id}, 'approve')">Approve</button>
+                <button class="btn btn-danger" onclick="processDeposit(${deposit.investment_id}, 'deny')">Deny</button>
               ` : `
-                <span style="color: #6c757d;">Processed</span>
+                <span class="empty-state">Processed</span>
               `}
             </td>
           </tr>
         `).join('')}
       </tbody>
     </table>
-    <div style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 4px;">
+    <div class="admin-bulk-bar">
       <strong>Selected: <span id="selectedDepositsCount">0</span> deposit(s)</strong>
       ${pendingDeposits.length > 0 ? `
-        <div style="margin-top: 10px;">
-          <button class="btn btn-success" onclick="bulkApproveDeposits()" style="margin-right: 10px; padding: 8px 15px;">✓ Approve Selected</button>
-          <button class="btn btn-danger" onclick="bulkDenyDeposits()" style="padding: 8px 15px;">✗ Deny Selected</button>
+        <div>
+          <button class="btn btn-success" onclick="bulkApproveDeposits()">Approve selected</button>
+          <button class="btn btn-danger" onclick="bulkDenyDeposits()">Deny selected</button>
         </div>
       ` : ''}
     </div>
@@ -445,21 +445,21 @@ function renderWithdrawalRequests(requests) {
             <td>${formatDateTime(req.requested_at)}</td>
             <td>
               ${req.status === 'pending' ? `
-                <button class="btn btn-success" onclick="processWithdrawalRequest(${req.id}, 'approve')" style="padding: 5px 10px; font-size: 12px; margin-right: 5px;">✓ Approve</button>
-                <button class="btn btn-danger" onclick="processWithdrawalRequest(${req.id}, 'deny')" style="padding: 5px 10px; font-size: 12px;">✗ Deny</button>
+                <button class="btn btn-success" onclick="processWithdrawalRequest(${req.id}, 'approve')">Approve</button>
+                <button class="btn btn-danger" onclick="processWithdrawalRequest(${req.id}, 'deny')">Deny</button>
               ` : `
-                <span style="color: #6c757d;">Processed</span>
+                <span class="empty-state">Processed</span>
               `}
             </td>
           </tr>
         `).join('')}
       </tbody>
     </table>
-    <div style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 4px;">
-      <strong>Bulk Actions:</strong>
-      <button class="btn btn-success" onclick="bulkApproveRequests()" style="margin-left: 10px; padding: 8px 15px;">✓ Approve Selected</button>
-      <button class="btn btn-danger" onclick="bulkDenyRequests()" style="margin-left: 10px; padding: 8px 15px;">✗ Deny Selected</button>
-      <span id="selectedCount" style="margin-left: 15px; color: #6c757d;">0 selected</span>
+    <div class="admin-bulk-bar">
+      <strong>Bulk actions</strong>
+      <button class="btn btn-success" onclick="bulkApproveRequests()">Approve selected</button>
+      <button class="btn btn-danger" onclick="bulkDenyRequests()">Deny selected</button>
+      <span id="selectedCount" class="empty-state">0 selected</span>
     </div>
   `;
 }
@@ -1608,14 +1608,14 @@ function filterUsersTable(searchTerm) {
               <td>${formatDateTime(user.created_at)}</td>
               <td>${user.is_admin ? 'Yes' : 'No'}</td>
               <td>
-                <button class="btn btn-warning" onclick="resetUserPassword(${user.id}, '${(getUserPhone(user) || user.email || 'User').replace(/'/g, "\\'")}', this)" style="padding: 5px 10px; font-size: 12px; margin-right: 5px;" title="Reset Password">
-                  🔑 Reset Password
+                <button class="btn btn-warning" onclick="resetUserPassword(${user.id}, '${(getUserPhone(user) || user.email || 'User').replace(/'/g, "\\'")}', this)" title="Reset Password">
+                  Reset password
                 </button>
                 ${!user.is_admin ? `
-                  <button class="btn btn-danger" onclick="deleteUser(${user.id}, '${(getUserPhone(user) || user.email || 'User').replace(/'/g, "\\'")}')" style="padding: 5px 10px; font-size: 12px;" title="Delete User">
-                    🗑️ Delete
+                  <button class="btn btn-danger" onclick="deleteUser(${user.id}, '${(getUserPhone(user) || user.email || 'User').replace(/'/g, "\\'")}')" title="Delete User">
+                    Delete
                   </button>
-                ` : '<span style="color: #6c757d; font-size: 12px;">Admin</span>'}
+                ` : '<span class="empty-state">Admin</span>'}
               </td>
             </tr>
           `).join('')}
@@ -1687,8 +1687,8 @@ async function showAnnouncementsModal() {
                   ${a.image_path ? `<div style="margin: 10px 0;"><img src="${a.image_path}" alt="Announcement image" style="max-width: 100%; max-height: 300px; border-radius: 4px; border: 1px solid #ddd;"></div>` : ''}
                   <p style="margin: 10px 0; white-space: pre-wrap;">${a.content}</p>
                   <div style="display: flex; gap: 10px; margin-top: 10px;">
-                    <button class="btn btn-warning" onclick="showEditAnnouncementModal(${a.id})" style="padding: 5px 10px; font-size: 12px;">✏️ Edit</button>
-                    <button class="btn btn-danger" onclick="deleteAnnouncement(${a.id})" style="padding: 5px 10px; font-size: 12px;">🗑️ Delete</button>
+                    <button class="btn btn-warning" onclick="showEditAnnouncementModal(${a.id})">Edit</button>
+                    <button class="btn btn-danger" onclick="deleteAnnouncement(${a.id})">Delete</button>
                   </div>
                 </div>
               </div>
