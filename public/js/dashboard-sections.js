@@ -128,29 +128,23 @@ function showSection(sectionName) {
     history.replaceState(null, '', newHash);
   }
 
-  // Load section content - always load, don't skip
-  console.log('Loading content for section:', sectionName);
-  switch(sectionName) {
-    case 'home':
-      loadHomeSection();
-      break;
-    case 'dashboard':
-      loadDashboardSection();
-      break;
-    case 'levels':
-      loadLevelsSection();
-      break;
-    case 'about':
-      loadAboutSection();
-      break;
-    case 'me':
-      loadMeSection();
-      break;
-    case 'withdraw':
-      loadWithdrawSection();
-      break;
-    default:
-      console.warn('Unknown section:', sectionName);
+  // Load section content once, then reuse it
+  const loaders = {
+    home: { el: 'homeContent', fn: loadHomeSection, refresh: false },
+    dashboard: { el: 'dashboardContent', fn: loadDashboardSection, refresh: false },
+    levels: { el: 'levelsContent', fn: loadLevelsSection, refresh: false },
+    about: { el: 'aboutContent', fn: loadAboutSection, refresh: false },
+    me: { el: 'meContent', fn: loadMeSection, refresh: true },
+    withdraw: { el: 'withdrawContent', fn: loadWithdrawSection, refresh: false }
+  };
+  const loader = loaders[sectionName];
+  if (loader) {
+    const contentEl = document.getElementById(loader.el);
+    if (loader.refresh || !contentEl || contentEl.dataset.loaded !== 'true') {
+      loader.fn();
+    }
+  } else {
+    console.warn('Unknown section:', sectionName);
   }
 }
 
@@ -161,25 +155,7 @@ async function loadHomeSection() {
     console.error('Home content container not found');
     return;
   }
-  
-  // Show loading state
-  showLoading(homeContent, 'Loading home content...');
-  
-  // Load announcements
-  let announcements = [];
-  try {
-    const announcementsResponse = await apiCall(`${window.API_BASE || ''}/api/announcements`, {
-      method: 'GET'
-    });
-    if (announcementsResponse.ok) {
-      announcements = await handleApiResponse(announcementsResponse);
-    }
-  } catch (error) {
-    console.error('Error loading announcements:', error);
-    // Continue without announcements - not critical
-  }
-  
-  // Generate random phone numbers and levels
+
   function generatePhoneNumber() {
     const prefixes = ['097', '096', '095', '077', '076', '075'];
     const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
@@ -192,8 +168,6 @@ async function loadHomeSection() {
     return levels[Math.floor(Math.random() * levels.length)];
   }
 
-  // Slideshow functionality
-  let slideshowInterval = null;
   function updateSlideshow() {
     const phone = generatePhoneNumber();
     const level = generateLevel();
@@ -207,27 +181,7 @@ async function loadHomeSection() {
     }
   }
 
-  // Format announcements HTML
-  const announcementsHTML = announcements.length > 0 ? `
-    <div style="background: white; padding: 30px; border-radius: 10px; margin-bottom: 20px;">
-      <h3 style="color: #007BFF; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
-        <span style="font-size: 1.5rem;">📢</span>
-        <span>Announcements</span>
-      </h3>
-      ${announcements.map(a => `
-        <div style="border-left: 4px solid ${a.priority >= 7 ? '#dc3545' : a.priority >= 4 ? '#ffc107' : '#007BFF'}; padding: 15px; margin-bottom: 15px; background: ${a.priority >= 7 ? '#fff5f5' : a.priority >= 4 ? '#fffbf0' : '#f8f9fa'}; border-radius: 4px;">
-          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
-            <h4 style="margin: 0; color: #333; font-size: 1.1rem;">${a.title}</h4>
-            ${a.priority > 0 ? `<span style="background: #007BFF; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">Priority ${a.priority}</span>` : ''}
-          </div>
-          ${a.image_path ? `<div style="margin: 10px 0;"><img src="${a.image_path}" alt="${a.title}" style="max-width: 100%; max-height: 400px; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></div>` : ''}
-          <p style="margin: 0; color: #555; white-space: pre-wrap; line-height: 1.6;">${a.content}</p>
-          <small style="color: #999; display: block; margin-top: 10px;">${new Date(a.created_at).toLocaleDateString()}</small>
-        </div>
-      `).join('')}
-    </div>
-  ` : '';
-
+  const renderHome = (announcementsHTML) => {
   homeContent.innerHTML = `
     <div style="background: linear-gradient(135deg, #007BFF 0%, #0056b3 100%); color: white; padding: 40px; border-radius: 10px; margin-bottom: 30px; text-align: center;">
       <h2 style="font-size: 2.5rem; margin-bottom: 20px; color: white;">Welcome Back!</h2>
@@ -238,7 +192,7 @@ async function loadHomeSection() {
       </div>
     </div>
 
-    ${announcementsHTML}
+    <div id="homeAnnouncements">${announcementsHTML || ''}</div>
 
     <div style="background: white; padding: 30px; border-radius: 10px; margin-bottom: 20px;">
       <h3 style="color: #007BFF; margin-bottom: 20px;">Quick Actions</h3>
@@ -384,6 +338,39 @@ async function loadHomeSection() {
       window.youthSlideshowInterval = setInterval(updateYouthSlideshow, 6000);
     }
   }, 100);
+  };
+
+  renderHome('');
+  homeContent.dataset.loaded = 'true';
+
+  apiCall(`${window.API_BASE || ''}/api/announcements`, { method: 'GET' }, 4000)
+    .then((announcementsResponse) => announcementsResponse.ok ? handleApiResponse(announcementsResponse) : [])
+    .then((announcements) => {
+      if (!announcements || announcements.length === 0) return;
+      const box = document.getElementById('homeAnnouncements');
+      if (!box) return;
+      box.innerHTML = `
+    <div style="background: white; padding: 30px; border-radius: 10px; margin-bottom: 20px;">
+      <h3 style="color: #007BFF; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 1.5rem;">📢</span>
+        <span>Announcements</span>
+      </h3>
+      ${announcements.map(a => `
+        <div style="border-left: 4px solid ${a.priority >= 7 ? '#dc3545' : a.priority >= 4 ? '#ffc107' : '#007BFF'}; padding: 15px; margin-bottom: 15px; background: ${a.priority >= 7 ? '#fff5f5' : a.priority >= 4 ? '#fffbf0' : '#f8f9fa'}; border-radius: 4px;">
+          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+            <h4 style="margin: 0; color: #333; font-size: 1.1rem;">${a.title}</h4>
+            ${a.priority > 0 ? `<span style="background: #007BFF; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">Priority ${a.priority}</span>` : ''}
+          </div>
+          ${a.image_path ? `<div style="margin: 10px 0;"><img src="${a.image_path}" alt="${a.title}" style="max-width: 100%; max-height: 400px; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></div>` : ''}
+          <p style="margin: 0; color: #555; white-space: pre-wrap; line-height: 1.6;">${a.content}</p>
+          <small style="color: #999; display: block; margin-top: 10px;">${new Date(a.created_at).toLocaleDateString()}</small>
+        </div>
+      `).join('')}
+    </div>`;
+    })
+    .catch((error) => {
+      console.error('Error loading announcements:', error);
+    });
 }
 
 // Load Dashboard Section
@@ -393,8 +380,6 @@ function loadDashboardSection() {
     console.error('Dashboard content container not found');
     return;
   }
-  // Reset loaded flag to force reload
-  dashboardContent.dataset.loaded = 'false';
   loadInvestmentsDirectly();
 }
 
@@ -2754,35 +2739,20 @@ function initDashboardSections() {
     meContent: !!meContent
   });
   
-  // Wait a bit for DOM to be fully ready
-  setTimeout(() => {
-    // Check for hash navigation first
-    const hash = window.location.hash.replace('#', '');
-    console.log('Current hash:', hash);
-    
-    if (hash && hash.startsWith('section-')) {
-      const sectionName = hash.replace('section-', '');
-      console.log('Loading section from hash:', sectionName);
-      showSection(sectionName);
-    } else {
-      // Load home section by default
-      console.log('Loading home section (default)...');
-      showSection('home');
-    }
-    
-    // Listen for hash changes
-    window.addEventListener('hashchange', () => {
-      console.log('Hash changed:', window.location.hash);
-      handleHashNavigation();
-    });
-    
-    console.log('Dashboard sections initialized');
-    
-    // Start deposit status polling
-    if (typeof authenticatedApiCall === 'function') {
-      startDepositStatusPolling();
-    }
-  }, 200);
+  const hash = window.location.hash.replace('#', '');
+  if (hash && hash.startsWith('section-')) {
+    showSection(hash.replace('section-', ''));
+  } else {
+    showSection('home');
+  }
+
+  window.addEventListener('hashchange', () => {
+    handleHashNavigation();
+  });
+
+  if (typeof authenticatedApiCall === 'function') {
+    startDepositStatusPolling();
+  }
 }
 
 // Make showSection available globally

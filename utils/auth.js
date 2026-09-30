@@ -122,35 +122,42 @@ function normalizeZambianPhone(phone) {
 // Get user by phone number (flexible matching - handles various formats)
 async function getUserByPhone(phone) {
   if (!phone) return null;
-  
+
   try {
-    // Normalize the input phone number
     const normalizedInput = normalizeZambianPhone(phone);
     if (!normalizedInput) {
       console.log(`getUserByPhone: Invalid phone number format: "${phone}"`);
       return null;
     }
-    
-    // Get all users with phone numbers and compare normalized versions
+
+    const variants = [...new Set([
+      String(phone).trim(),
+      normalizedInput,
+      '0' + normalizedInput,
+      '260' + normalizedInput,
+      '+260' + normalizedInput
+    ])];
+    const placeholders = variants.map(() => '?').join(',');
+    const directMatch = await dbGet(
+      `SELECT * FROM users WHERE phone IN (${placeholders}) LIMIT 1`,
+      variants
+    );
+    if (directMatch) {
+      return directMatch;
+    }
+
     const allUsers = await dbQuery('SELECT * FROM users WHERE phone IS NOT NULL AND phone != ""', []);
-    
     for (const u of allUsers) {
-      if (u.phone) {
-        const dbPhoneNormalized = normalizeZambianPhone(u.phone);
-        
-        if (dbPhoneNormalized === normalizedInput) {
-          console.log(`getUserByPhone: ✅ Match found! Input="${phone}" (normalized: ${normalizedInput}) = DB phone="${u.phone}" (normalized: ${dbPhoneNormalized}) -> User ID: ${u.id}`);
-          return u;
-        }
+      if (u.phone && normalizeZambianPhone(u.phone) === normalizedInput) {
+        return u;
       }
     }
-    
+
     console.log(`getUserByPhone: ❌ No match found. Input="${phone}" (normalized: ${normalizedInput})`);
     return null;
   } catch (error) {
     console.error('getUserByPhone error:', error);
-    console.error('getUserByPhone error stack:', error.stack);
-    throw error; // Re-throw to be caught by the login route
+    throw error;
   }
 }
 
@@ -159,14 +166,16 @@ async function getUserById(id) {
   return await dbGet('SELECT id, email, phone, created_at, is_admin FROM users WHERE id = ?', [id]);
 }
 
+function getConfiguredAdminPhone() {
+  return String(process.env.ADMIN_PHONE || '0774510295').trim();
+}
+
 function isConfiguredAdminUser(user) {
   if (!user) return false;
 
-  if (process.env.ADMIN_PHONE) {
-    const adminNorm = normalizeZambianPhone(process.env.ADMIN_PHONE);
-    const userNorm = normalizeZambianPhone(user.phone);
-    if (adminNorm && userNorm && adminNorm === userNorm) return true;
-  }
+  const adminNorm = normalizeZambianPhone(getConfiguredAdminPhone());
+  const userNorm = normalizeZambianPhone(user.phone);
+  if (adminNorm && userNorm && adminNorm === userNorm) return true;
 
   const adminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
   const userEmail = user.email ? String(user.email).trim().toLowerCase() : '';
