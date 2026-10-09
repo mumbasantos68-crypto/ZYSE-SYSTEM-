@@ -65,31 +65,41 @@ function renderRegister() {
   const urlParams = new URLSearchParams(hashQueryString || window.location.search);
   const message = urlParams.get('msg');
   const msgType = urlParams.get('type') || 'error';
-  const referralCode = urlParams.get('ref') || '';
+  let referralCode = urlParams.get('ref') || '';
+  try {
+    referralCode = referralCode ? decodeURIComponent(referralCode).trim() : '';
+  } catch (e) {
+    referralCode = (referralCode || '').trim();
+  }
+  const referralDisplay = referralCode.replace(/[<>&"]/g, '');
 
   let messageHTML = '';
   if (message) {
     messageHTML = `<div class="message ${msgType}">${decodeURIComponent(message)}</div>`;
   }
 
-  // Show referral code message if present
-  let referralMessageHTML = '';
-  if (referralCode) {
-    referralMessageHTML = `
-      <div class="message success" style="background: #d4edda; color: #155724; border: 1px solid #c3e6cb; padding: 12px; border-radius: 5px; margin-bottom: 20px;">
-        🎉 You've been invited! Referral code has been automatically filled.
-      </div>
-    `;
-  }
+  const referralFieldHTML = `
+        <div class="form-group">
+          <label for="registerReferralCode">Referral Code</label>
+          <input
+            type="text"
+            id="registerReferralCode"
+            name="referralCode"
+            placeholder="Inviter phone number"
+            autocomplete="off"
+            value="${referralDisplay}"
+            ${referralDisplay ? 'readonly' : ''}
+          >
+        </div>
+      `;
 
   app.innerHTML = `
     ${brandingHTML}
     <div class="form-container fade-in">
       ${messageHTML}
-      ${referralMessageHTML}
       <form id="registerForm">
         <div class="form-group">
-          <label for="registerFullName">Full Name (Optional)</label>
+          <label for="registerFullName">Full Name</label>
           <input type="text" id="registerFullName" name="fullName" autocomplete="name">
         </div>
         <div class="form-group">
@@ -98,17 +108,10 @@ function renderRegister() {
           <small>This will be your login username</small>
         </div>
         <div class="form-group">
-          <label for="registerEmail">Email (Optional)</label>
+          <label for="registerEmail">Email</label>
           <input type="email" id="registerEmail" name="email" autocomplete="email">
-          <small>Not required - you can login with phone number only</small>
         </div>
-        <div class="form-group">
-          <label for="registerReferralCode">Referral Code (Optional)</label>
-          <input type="text" id="registerReferralCode" name="referralCode" placeholder="Enter referrer's phone number" autocomplete="off" value="${referralCode ? decodeURIComponent(referralCode) : ''}" ${referralCode ? 'readonly style="background: #e9ecef; color: #333;"' : 'style="color: #333;"'}>
-          <small>
-            ${referralCode ? 'Referral code from your invitation link (auto-filled)' : 'Enter the phone number of the person who invited you'}
-          </small>
-        </div>
+        ${referralFieldHTML}
         <div class="form-group">
           <label for="registerPassword">Password</label>
           <input type="password" id="registerPassword" name="password" required autocomplete="new-password" minlength="6">

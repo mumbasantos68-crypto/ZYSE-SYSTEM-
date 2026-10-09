@@ -218,6 +218,13 @@ body.app-shell {
   transition: background-color 9999s ease-in-out 0s;
 }
 
+.form-group input[readonly] {
+  background: rgba(148, 163, 184, 0.28);
+  color: #d1d5db;
+  border-color: rgba(148, 163, 184, 0.4);
+  cursor: not-allowed;
+}
+
 .form-group small {
   color: rgba(255, 255, 255, 0.7);
   display: block;
