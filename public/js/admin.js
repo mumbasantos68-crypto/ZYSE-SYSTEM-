@@ -103,6 +103,7 @@ function renderUsersTable(users) {
   }
 
   return `
+    <div class="admin-scroll-table">
     <table class="table admin-users-table">
       <thead>
         <tr>
@@ -124,7 +125,7 @@ function renderUsersTable(users) {
             <tr>
               <td>${index + 1}</td>
               <td class="admin-cell-strong">${phone || '—'}</td>
-              <td class="admin-cell-email">${user.email || '—'}</td>
+              <td class="admin-cell-email" title="${user.email || ''}">${user.email || '—'}</td>
               <td>${user.invited_by_phone || user.invited_by_email || (user.invited_by_user_id ? `User #${user.invited_by_user_id}` : '—')}</td>
               <td class="admin-cell-date">${formatDateTime(user.created_at)}</td>
               <td>${!user.level || user.level === 'L0' ? 'L0' : user.level}</td>
@@ -140,6 +141,7 @@ function renderUsersTable(users) {
         }).join('')}
       </tbody>
     </table>
+    </div>
   `;
 }
 
