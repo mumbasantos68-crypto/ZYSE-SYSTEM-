@@ -7,6 +7,7 @@ const { initDB, dbQuery, dbRun, dbGet, dbTransaction } = require('./utils/db');
 const { authenticateToken, requireAdmin, getUserByEmail, getUserByPhone, getUserById, getRequestUser, hashPassword, comparePassword, generateToken, normalizeZambianPhone, isConfiguredAdminUser } = require('./utils/auth');
 const { initializePayment, verifyPayment, generateReference } = require('./utils/payments');
 const { getZambiaDate, getPublicPuzzle, isValidPuzzleSelection, quoteAmounts, ensureDailyCheckinsTable, getDailyCheckEligibility } = require('./utils/dailyCheckin');
+const { ensureCareerApplicationsTable, getRole, getCareerBoard } = require('./utils/careers');
 const nodemailer = require('nodemailer');
 const { body, validationResult } = require('express-validator');
 const multer = require('multer');
@@ -598,6 +599,88 @@ app.post('/api/daily-check', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/api/careers', authenticateToken, async (req, res) => {
+  try {
+    await ensureCareerApplicationsTable();
+    const user = await getRequestUser(req);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found. Log out and log in again.' });
+    }
+    const board = await getCareerBoard(user.id);
+    res.json(board);
+  } catch (error) {
+    console.error('Careers load error:', error);
+    res.status(500).json({ error: 'Failed to load career opportunities' });
+  }
+});
+
+app.post('/api/careers/apply', authenticateToken, async (req, res) => {
+  try {
+    await ensureCareerApplicationsTable();
+    const user = await getRequestUser(req);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found. Log out and log in again.' });
+    }
+    const roleId = req.body && req.body.roleId;
+    const role = getRole(roleId);
+    if (!role) {
+      return res.status(400).json({ error: 'That role was not found' });
+    }
+    const board = await getCareerBoard(user.id);
+    const match = board.roles.find((item) => item.id === role.id);
+    if (!match || !match.eligible) {
+      return res.status(403).json({ error: 'You are not eligible to apply for this role' });
+    }
+    if (match.applied) {
+      return res.status(400).json({ error: 'You already applied for this role' });
+    }
+    await dbRun(
+      'INSERT INTO career_applications (user_id, role_id, status) VALUES (?, ?, ?)',
+      [user.id, role.id, 'pending']
+    );
+    res.json({ success: true, message: `Application sent for ${role.title}` });
+  } catch (error) {
+    if (error && (error.code === 'SQLITE_CONSTRAINT' || String(error.message || '').includes('UNIQUE'))) {
+      return res.status(400).json({ error: 'You already applied for this role' });
+    }
+    console.error('Career apply error:', error);
+    res.status(500).json({ error: 'Failed to send application' });
+  }
+});
+
+app.get('/api/admin/careers', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    await ensureCareerApplicationsTable();
+    const rows = await dbQuery(
+      `SELECT a.id, a.role_id, a.status, a.created_at,
+              u.id as user_id, u.phone, u.full_name, u.level
+       FROM career_applications a
+       JOIN users u ON u.id = a.user_id
+       ORDER BY a.created_at DESC`
+    );
+    const applications = [];
+    for (const row of rows) {
+      const role = getRole(row.role_id);
+      const board = await getCareerBoard(row.user_id);
+      applications.push({
+        id: row.id,
+        roleId: row.role_id,
+        roleTitle: role ? role.title : row.role_id,
+        status: row.status,
+        createdAt: row.created_at,
+        phone: row.phone,
+        fullName: row.full_name,
+        level: board.level || row.level,
+        inviteCount: board.inviteCount
+      });
+    }
+    res.json(applications);
+  } catch (error) {
+    console.error('Admin careers error:', error);
+    res.status(500).json({ error: 'Failed to load career applications' });
+  }
+});
+
 app.get('/api/packages', async (req, res) => {
   try {
     const packages = await dbQuery('SELECT * FROM packages ORDER BY amount ASC');
@@ -614,11 +697,13 @@ app.get('/api/wallets', async (req, res) => {
     res.json({
       airtel: {
         name: 'AIRTEL MONEY',
-        number: process.env.AIRTEL_MONEY_NUMBER || '0977123456'
+        number: process.env.AIRTEL_MONEY_NUMBER || '0978936541',
+        accountName: process.env.AIRTEL_MONEY_NAME || 'SIMOWWE PETER'
       },
       mtn: {
         name: 'MTN MOBILE MONEY',
-        number: process.env.MTN_MONEY_NUMBER || '0966123456'
+        number: process.env.MTN_MONEY_NUMBER || '0966977329',
+        accountName: process.env.MTN_MONEY_NAME || 'MUSONDA'
       }
     });
   } catch (error) {

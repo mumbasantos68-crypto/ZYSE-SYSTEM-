@@ -48,13 +48,14 @@ async function loadAdminData() {
 
   try {
     // Load all data in parallel
-    const [usersResponse, investmentsResponse, statsResponse, withdrawalRequestsResponse, depositsResponse, announcementsResponse] = await Promise.all([
+    const [usersResponse, investmentsResponse, statsResponse, withdrawalRequestsResponse, depositsResponse, announcementsResponse, careersResponse] = await Promise.all([
       fetch(`${API_BASE}/api/admin/users`, { headers: getAuthHeaders() }),
       fetch(`${API_BASE}/api/admin/investments`, { headers: getAuthHeaders() }),
       fetch(`${API_BASE}/api/admin/stats`, { headers: getAuthHeaders() }),
       fetch(`${API_BASE}/api/admin/withdrawal-requests`, { headers: getAuthHeaders() }),
       fetch(`${API_BASE}/api/admin/deposits`, { headers: getAuthHeaders() }),
-      fetch(`${API_BASE}/api/admin/announcements`, { headers: getAuthHeaders() })
+      fetch(`${API_BASE}/api/admin/announcements`, { headers: getAuthHeaders() }),
+      fetch(`${API_BASE}/api/admin/careers`, { headers: getAuthHeaders() })
     ]);
 
     // Auth guard
@@ -78,8 +79,9 @@ async function loadAdminData() {
       : [];
     const deposits = depositsResponse.ok ? await depositsResponse.json() : [];
     const announcements = announcementsResponse.ok ? await announcementsResponse.json() : [];
+    const careerApplications = careersResponse && careersResponse.ok ? await careersResponse.json() : [];
 
-    renderAdminDashboard(users, investments, stats, withdrawalRequests, deposits, announcements);
+    renderAdminDashboard(users, investments, stats, withdrawalRequests, deposits, announcements, careerApplications);
   } catch (error) {
     console.error('Admin error:', error);
     adminContent.innerHTML = `
@@ -149,7 +151,7 @@ function showAdminTab(tab) {
 }
 
 // Render admin dashboard
-function renderAdminDashboard(users, investments, stats, withdrawalRequests, deposits, announcements) {
+function renderAdminDashboard(users, investments, stats, withdrawalRequests, deposits, announcements, careerApplications) {
   const adminContent = document.getElementById('adminContent');
   
   // Sort users: Admin first (is_admin = 1), then by creation date (newest first)
@@ -259,6 +261,7 @@ function renderAdminDashboard(users, investments, stats, withdrawalRequests, dep
       <button type="button" class="admin-tab-btn active" data-tab="approvals" onclick="showAdminTab('approvals')">Approvals</button>
       <button type="button" class="admin-tab-btn" data-tab="users" onclick="showAdminTab('users')">Users</button>
       <button type="button" class="admin-tab-btn" data-tab="investments" onclick="showAdminTab('investments')">Investments</button>
+      <button type="button" class="admin-tab-btn" data-tab="careers" onclick="showAdminTab('careers')">Career opportunity</button>
     </div>
 
     <div class="admin-tab-panel" data-tab="approvals">
@@ -320,6 +323,51 @@ function renderAdminDashboard(users, investments, stats, withdrawalRequests, dep
       </div>
     </div>
     </div>
+
+    <div class="admin-tab-panel" data-tab="careers" hidden>
+    <div class="card">
+      <div class="card-header">Career applications (${(careerApplications || []).length})</div>
+      <div class="table-wrap">
+      ${renderCareerApplications(careerApplications || [])}
+      </div>
+    </div>
+    </div>
+  `;
+}
+
+function renderCareerApplications(applications) {
+  if (!applications.length) {
+    return '<p class="empty-state">No career applications yet.</p>';
+  }
+  return `
+    <table class="table admin-users-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Phone</th>
+          <th>Name</th>
+          <th>Role</th>
+          <th>Level</th>
+          <th>Active invites</th>
+          <th>Status</th>
+          <th>Applied</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${applications.map((app, index) => `
+          <tr>
+            <td>${index + 1}</td>
+            <td class="admin-cell-strong">${app.phone || '—'}</td>
+            <td>${app.fullName || '—'}</td>
+            <td>${app.roleTitle || app.roleId}</td>
+            <td>${app.level || '—'}</td>
+            <td>${app.inviteCount != null ? app.inviteCount : '—'}</td>
+            <td><span class="admin-role">${app.status || 'pending'}</span></td>
+            <td class="admin-cell-date">${app.createdAt ? formatDateTime(app.createdAt) : '—'}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
   `;
 }
 

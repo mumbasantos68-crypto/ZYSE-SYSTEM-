@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard - Zambia Youth Self Employment</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/css/style.css?v=21">
+  <link rel="stylesheet" href="/css/style.css?v=25">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -230,6 +230,7 @@
         <li><a href="#" onclick="showSection('dashboard'); if(window.innerWidth <= 768) window.closeMobileMenu(); return false;" id="nav-dashboard">📊 Dashboard</a></li>
         <li><a href="#" onclick="showSection('levels'); if(window.innerWidth <= 768) window.closeMobileMenu(); return false;" id="nav-levels">⭐ Levels</a></li>
         <li><a href="#" onclick="showSection('daily'); if(window.innerWidth <= 768) window.closeMobileMenu(); return false;" id="nav-daily">✓ Daily task</a></li>
+        <li><a href="#" onclick="showSection('careers'); if(window.innerWidth <= 768) window.closeMobileMenu(); return false;" id="nav-careers">💼 Careers</a></li>
         <li><a href="#" onclick="showSection('about'); if(window.innerWidth <= 768) window.closeMobileMenu(); return false;" id="nav-about">ℹ️ About</a></li>
         <li><a href="#" onclick="showSection('me'); if(window.innerWidth <= 768) window.closeMobileMenu(); return false;" id="nav-me">👤 Me</a></li>
         <li id="adminNavItem" style="display: none;">
@@ -285,6 +286,16 @@
         </div>
       </div>
 
+      <!-- Career Opportunity Section -->
+      <div id="section-careers" class="content-section">
+        <div class="content-header">
+          <h1>Career opportunity</h1>
+        </div>
+        <div id="careersContent">
+          <div class="loading">Loading career opportunities...</div>
+        </div>
+      </div>
+
       <!-- About Section -->
       <div id="section-about" class="content-section">
         <div class="content-header">
@@ -321,7 +332,7 @@
   <script src="/js/api-utils.js?v=1"></script>
   <script src="/js/auth.js?v=10"></script>
   <script src="/js/dashboard.js?v=10"></script>
-  <script src="/js/dashboard-sections.js?v=23"></script>
+  <script src="/js/dashboard-sections.js?v=25"></script>
   <script>
     // Mobile menu toggle function
     function toggleMobileMenu() {

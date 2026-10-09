@@ -12,12 +12,14 @@ let selectedWallet = null;
 const WALLETS = {
   airtel: {
     name: 'AIRTEL MONEY',
-    number: '0977123456', // Will be updated from server
+    number: '0978936541',
+    accountName: 'SIMOWWE PETER',
     instructions: 'Send money to the number below using Airtel Money. After sending, copy the transaction TXT number from your confirmation message and paste it in the verification form below.'
   },
   mtn: {
     name: 'MTN MOBILE MONEY',
-    number: '0966123456', // Will be updated from server
+    number: '0966977329',
+    accountName: 'MUSONDA',
     instructions: 'Send money to the number below using MTN Mobile Money. After sending, copy the transaction TXT number from your confirmation message and paste it in the verification form below.'
   }
 };
@@ -45,9 +47,11 @@ async function loadWallets() {
       // Update wallet numbers from server
       if (wallets.airtel) {
         WALLETS.airtel.number = wallets.airtel.number;
+        if (wallets.airtel.accountName) WALLETS.airtel.accountName = wallets.airtel.accountName;
       }
       if (wallets.mtn) {
         WALLETS.mtn.number = wallets.mtn.number;
+        if (wallets.mtn.accountName) WALLETS.mtn.accountName = wallets.mtn.accountName;
       }
     }
   } catch (error) {
@@ -269,7 +273,9 @@ function selectWallet(walletType) {
     walletInstructions.textContent = wallet.instructions;
   }
   if (paymentNumber) {
-    paymentNumber.textContent = wallet.number;
+    paymentNumber.textContent = wallet.accountName
+      ? `${wallet.number} (${wallet.accountName})`
+      : wallet.number;
   }
 
   // Scroll to instructions

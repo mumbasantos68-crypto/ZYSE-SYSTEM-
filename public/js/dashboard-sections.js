@@ -134,6 +134,7 @@ function showSection(sectionName) {
     dashboard: { el: 'dashboardContent', fn: loadDashboardSection, refresh: false },
     levels: { el: 'levelsContent', fn: loadLevelsSection, refresh: false },
     daily: { el: 'dailyContent', fn: loadDailyCheckSection, refresh: true },
+    careers: { el: 'careersContent', fn: loadCareersSection, refresh: true },
     about: { el: 'aboutContent', fn: loadAboutSection, refresh: false },
     me: { el: 'meContent', fn: loadMeSection, refresh: true },
     withdraw: { el: 'withdrawContent', fn: loadWithdrawSection, refresh: false }
@@ -226,6 +227,11 @@ async function loadHomeSection() {
           <span class="home-action-icon">✓</span>
           <strong>Daily task puzzle</strong>
           <span>Select the colour asked</span>
+        </button>
+        <button type="button" class="home-action" onclick="showSection('careers')">
+          <span class="home-action-icon">★</span>
+          <strong>Career opportunity</strong>
+          <span>Join ZYSE staff. Secure employment</span>
         </button>
       </div>
 
@@ -738,6 +744,89 @@ async function loadDailyCheckSection() {
 }
 
 window.loadDailyCheckSection = loadDailyCheckSection;
+
+async function loadCareersSection() {
+  const careersContent = document.getElementById('careersContent');
+  if (!careersContent) {
+    console.error('Careers content container not found');
+    return;
+  }
+
+  showLoading(careersContent, 'Loading career opportunities...');
+
+  try {
+    const data = await authenticatedApiCall(`${window.API_BASE || ''}/api/careers`, { method: 'GET' });
+    const inviteCount = Number(data.inviteCount || 0);
+    const levelLabel = data.level ? escapeDailyHtml(data.level) : 'None yet';
+    const roles = data.roles || [];
+
+    const cards = roles.map((role) => {
+      const salary = role.salary
+        ? `K${Number(role.salary).toLocaleString()} / month`
+        : 'Employment package';
+      const status = role.applied
+        ? '<span class="career-tag">Application sent</span>'
+        : role.eligible
+          ? '<span class="career-tag is-ok">You can apply</span>'
+          : '<span class="career-tag">Requirements not met</span>';
+      const action = role.applied
+        ? '<button type="button" class="btn" disabled>Applied</button>'
+        : `<button type="button" class="btn" onclick="applyCareerRole('${escapeDailyHtml(role.id)}')">Apply now</button>`;
+      return `
+        <article class="career-card">
+          <div class="career-card-top">
+            <h3>${escapeDailyHtml(role.title)}</h3>
+            ${status}
+          </div>
+          <ul>
+            <li>Active invite board: <strong>${role.minInvites}</strong> people</li>
+            <li>Minimum level: <strong>L${role.minLevel}</strong></li>
+            <li>Salary: <strong>${salary}</strong></li>
+            <li>Daily bonus: <strong>K${Number(role.dailyBonus).toLocaleString()} / day</strong></li>
+          </ul>
+          ${action}
+        </article>
+      `;
+    }).join('');
+
+    careersContent.innerHTML = `
+      <div class="career-hero">
+        <p class="daily-check-kicker">Career opportunity</p>
+        <h2>Join ZYSE and be a member of staff. Secure your employment.</h2>
+        <p>Roles open when your invite board has active members and you are on the required level. Active means the person you invited has an investment that is running.</p>
+        <div class="daily-check-payout">
+          <div><span>Your level</span><strong>${levelLabel}</strong></div>
+          <div class="daily-check-total"><span>Active invites</span><strong>${inviteCount}</strong></div>
+        </div>
+      </div>
+      <div class="career-grid">${cards}</div>
+    `;
+    careersContent.dataset.loaded = 'true';
+  } catch (error) {
+    console.error('Error loading careers:', error);
+    showError(careersContent, error.message, () => loadCareersSection());
+  }
+}
+
+window.applyCareerRole = async function applyCareerRole(roleId) {
+  try {
+    const result = await authenticatedApiCall(`${window.API_BASE || ''}/api/careers/apply`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roleId })
+    });
+    if (typeof showAlert === 'function') {
+      showAlert(result.message || 'Application sent', 'Career opportunity');
+    }
+    loadCareersSection();
+  } catch (error) {
+    if (typeof showAlert === 'function') {
+      showAlert(error.message || 'You are not eligible to apply for this role', 'Career opportunity');
+    }
+  }
+};
+
+window.loadCareersSection = loadCareersSection;
 
 // Load Levels Section
 async function loadLevelsSection() {
@@ -2823,7 +2912,7 @@ function handleHashNavigation() {
   const hash = window.location.hash.replace('#', '');
     if (hash && hash.startsWith('section-')) {
       const sectionName = hash.replace('section-', '');
-      if (['home', 'dashboard', 'levels', 'daily', 'about', 'me', 'withdraw'].includes(sectionName)) {
+      if (['home', 'dashboard', 'levels', 'daily', 'careers', 'about', 'me', 'withdraw'].includes(sectionName)) {
         showSection(sectionName);
         return true;
       }
@@ -3169,8 +3258,8 @@ function showDepositModal(packageId, amount) {
   // Wallet details
   const walletDetails = {
     airtel: {
-      phone: '+260770285804',
-      name: 'Chigole Siakalenge',
+      phone: '0978936541',
+      name: 'SIMOWWE PETER',
       ussd: '*115#',
       getInstructions: function(showAmountInput, displayAmount) {
         const amountText = showAmountInput ? '<strong style="color: #333;">(enter amount below)</strong>' : '<strong style="color: #333;">K' + displayAmount + '</strong>';
@@ -3185,8 +3274,8 @@ function showDepositModal(packageId, amount) {
       }
     },
     mtn: {
-      phone: '0769194765',
-      name: 'Maggie Mwamba',
+      phone: '0966977329',
+      name: 'MUSONDA',
       ussd: '*115#',
       getInstructions: function(showAmountInput, displayAmount) {
         const amountText = showAmountInput ? '<strong style="color: #333;">(enter amount below)</strong>' : '<strong style="color: #333;">K' + displayAmount + '</strong>';

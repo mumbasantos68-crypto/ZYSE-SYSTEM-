@@ -4,6 +4,11 @@ const bcrypt = require('bcrypt');
 const fs = require('fs');
 
 function resolveDbPath() {
+  // Railway injects this when a volume is attached to the service.
+  const railwayVolume = (process.env.RAILWAY_VOLUME_MOUNT_PATH || '').trim();
+  if (railwayVolume) {
+    return path.join(railwayVolume, 'db.sqlite');
+  }
   if (process.env.DB_PATH) {
     return path.resolve(process.env.DB_PATH);
   }
@@ -18,9 +23,16 @@ function resolveDbPath() {
   return path.join(__dirname, '..', 'db.sqlite');
 }
 
+function isPersistentDbPath(dbPath) {
+  const railwayVolume = (process.env.RAILWAY_VOLUME_MOUNT_PATH || '').trim();
+  if (railwayVolume && dbPath.startsWith(railwayVolume)) return true;
+  if (dbPath.startsWith('/data' + path.sep) || dbPath === '/data/db.sqlite') return true;
+  return false;
+}
+
 // Database file path
-// Railway: set DB_PATH=/data/db.sqlite and mount a volume at /data, or the app
-// will use /data/db.sqlite automatically if that folder exists.
+// Railway: attach a volume to this service (mount /data). Accounts live in that
+// volume file. Without a volume, every rebuild wipes db.sqlite with the container.
 let DB_PATH = resolveDbPath();
 
 // If database is on E: drive and having I/O issues, use a local temp location
@@ -82,8 +94,9 @@ function initDB() {
       const exists = fs.existsSync(DB_PATH);
       const size = exists ? fs.statSync(DB_PATH).size : 0;
       console.log(`SQLite path: ${DB_PATH} (${exists ? size + ' bytes' : 'new file'})`);
-      if (!process.env.DB_PATH && !DB_PATH.startsWith('/data')) {
-        console.log('WARNING: No persistent volume detected. Redeploys will wipe user accounts unless you set DB_PATH=/data/db.sqlite and attach a Railway volume at /data.');
+      console.log(`RAILWAY_VOLUME_MOUNT_PATH=${process.env.RAILWAY_VOLUME_MOUNT_PATH || '(not set)'}`);
+      if (!isPersistentDbPath(DB_PATH)) {
+        console.log('WARNING: Database is on the app disk. Rebuild/redeploy will erase all accounts. Attach a Railway volume to this service, mount path /data.');
       }
       
       // Try to remove any stale journal/WAL files that might be locking the database
@@ -204,6 +217,21 @@ function initializeTables(db, resolve, reject) {
           console.error('Error creating daily_checkins table:', err.message);
         } else {
           console.log('Daily checkins table ready');
+        }
+      });
+
+      db.run(`CREATE TABLE IF NOT EXISTS career_applications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        role_id TEXT NOT NULL,
+        status TEXT DEFAULT 'pending',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, role_id)
+      )`, (careerErr) => {
+        if (careerErr) {
+          console.error('Error creating career_applications table:', careerErr.message);
+        } else {
+          console.log('Career applications table ready');
         }
       });
 
