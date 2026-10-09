@@ -3091,11 +3091,9 @@ app.delete('/api/admin/announcements/:id', authenticateToken, requireAdmin, asyn
 
 // ==================== CRON JOB - Daily Accruals ====================
 
-// Run daily at midnight
 cron.schedule('0 0 * * *', async () => {
-  console.log('Running daily accrual job...');
+  console.log('Running daily accrual job (00:00 Africa/Lusaka)...');
   try {
-    // Get all active investments
     const investments = await dbQuery(
       `SELECT i.*, p.daily_rate
        FROM investments i
@@ -3104,29 +3102,25 @@ cron.schedule('0 0 * * *', async () => {
     );
 
     for (const investment of investments) {
-      // Calculate daily accrual
       const dailyAccrual = investment.deposit_amount * investment.daily_rate;
 
-      // Update total accruals
       await dbRun(
         'UPDATE investments SET total_accruals = total_accruals + ? WHERE id = ?',
         [dailyAccrual, investment.id]
       );
 
-      // Create accrual transaction
       await dbRun(
         'INSERT INTO transactions (user_id, type, amount, investment_id) VALUES (?, ?, ?, ?)',
         [investment.user_id, 'accrual', dailyAccrual, investment.id]
       );
-
-      // Maturity date logic removed - investments no longer mature
-      // Investments remain active and continue earning daily income indefinitely
     }
 
     console.log(`Processed ${investments.length} investments`);
   } catch (error) {
     console.error('Accrual job error:', error);
   }
+}, {
+  timezone: 'Africa/Lusaka'
 });
 
 // ==================== SERVER START ====================
