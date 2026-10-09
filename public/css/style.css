@@ -1710,6 +1710,19 @@ body.app-shell {
   color: #f8fafc;
 }
 
+.home-announce-image {
+  margin: 10px 0;
+}
+
+.home-announce-image img {
+  display: block;
+  width: 100%;
+  max-height: 280px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: rgba(2, 8, 20, 0.45);
+}
+
 .home-announce-item p,
 .home-announce-item small {
   color: #94a3b8;

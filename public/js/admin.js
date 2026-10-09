@@ -1702,7 +1702,7 @@ async function showAnnouncementsModal() {
                       </span>
                     </div>
                   </div>
-                  ${a.image_path ? `<div style="margin: 10px 0;"><img src="${a.image_path}" alt="Announcement image" style="max-width: 100%; max-height: 300px; border-radius: 4px; border: 1px solid #ddd;"></div>` : ''}
+                  ${a.image_path ? `<div style="margin: 10px 0;"><img src="${encodeURI(a.image_path)}" alt="" style="max-width: 100%; max-height: 300px; border-radius: 4px; border: 1px solid #ddd;"></div>` : ''}
                   <p style="margin: 10px 0; white-space: pre-wrap;">${a.content}</p>
                   <div style="display: flex; gap: 10px; margin-top: 10px;">
                     <button class="btn btn-warning" onclick="showEditAnnouncementModal(${a.id})">Edit</button>

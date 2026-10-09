@@ -364,7 +364,7 @@ async function loadHomeSection() {
       ${announcements.map(a => `
         <div class="home-announce-item">
           <h4>${a.title}</h4>
-          ${a.image_path ? `<div style="margin: 8px 0;"><img src="${a.image_path}" alt="${a.title}" style="max-width: 100%; max-height: 280px; border-radius: 8px;"></div>` : ''}
+          ${a.image_path ? `<div class="home-announce-image"><img src="${encodeURI(a.image_path)}" alt=""></div>` : ''}
           <p style="white-space: pre-wrap; line-height: 1.6;">${a.content}</p>
           <small>${new Date(a.created_at).toLocaleDateString()}</small>
         </div>

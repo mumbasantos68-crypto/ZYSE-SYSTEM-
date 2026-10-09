@@ -16,22 +16,76 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Create uploads directory if it doesn't exist
-const uploadsDir = path.join(__dirname, 'public', 'uploads', 'profiles');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+function resolveUploadsRoot() {
+  const railwayVolume = (process.env.RAILWAY_VOLUME_MOUNT_PATH || '').trim();
+  if (railwayVolume) return path.join(railwayVolume, 'uploads');
+  try {
+    if (fs.existsSync('/data') && fs.statSync('/data').isDirectory()) {
+      return path.join('/data', 'uploads');
+    }
+  } catch (e) {
+    // fall back to public uploads
+  }
+  return path.join(__dirname, 'public', 'uploads');
 }
 
-// Create certificates directory
-const certificatesDir = path.join(__dirname, 'public', 'uploads', 'certificates');
-if (!fs.existsSync(certificatesDir)) {
-  fs.mkdirSync(certificatesDir, { recursive: true });
+const uploadsRoot = resolveUploadsRoot();
+const uploadsDir = path.join(uploadsRoot, 'profiles');
+const certificatesDir = path.join(uploadsRoot, 'certificates');
+const announcementsDir = path.join(uploadsRoot, 'announcements');
+[uploadsRoot, uploadsDir, certificatesDir, announcementsDir].forEach((dir) => {
+  fs.mkdirSync(dir, { recursive: true });
+});
+console.log('Uploads root:', uploadsRoot);
+
+function imageExtension(file) {
+  const fromName = path.extname(file.originalname || '').toLowerCase();
+  if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(fromName)) {
+    return fromName === '.jpeg' ? '.jpg' : fromName;
+  }
+  const byMime = {
+    'image/jpeg': '.jpg',
+    'image/jpg': '.jpg',
+    'image/png': '.png',
+    'image/gif': '.gif',
+    'image/webp': '.webp'
+  };
+  return byMime[file.mimetype] || '.jpg';
 }
 
-// Create announcements directory
-const announcementsDir = path.join(__dirname, 'public', 'uploads', 'announcements');
-if (!fs.existsSync(announcementsDir)) {
-  fs.mkdirSync(announcementsDir, { recursive: true });
+function uploadDiskPath(webPath) {
+  if (!webPath) return null;
+  const name = path.basename(String(webPath));
+  let folder = 'announcements';
+  if (String(webPath).includes('profiles')) folder = 'profiles';
+  if (String(webPath).includes('certificates')) folder = 'certificates';
+  const onVolume = path.join(uploadsRoot, folder, name);
+  const inPublic = path.join(__dirname, 'public', 'uploads', folder, name);
+  if (fs.existsSync(onVolume)) return onVolume;
+  if (fs.existsSync(inPublic)) return inPublic;
+  return onVolume;
+}
+
+function deleteUpload(webPath) {
+  const filePath = uploadDiskPath(webPath);
+  if (filePath && fs.existsSync(filePath)) {
+    try {
+      fs.unlinkSync(filePath);
+    } catch (e) {
+      console.log('Could not delete upload:', e.message);
+    }
+  }
+}
+
+function handleMulter(uploadFn) {
+  return (req, res, next) => {
+    uploadFn(req, res, (err) => {
+      if (err) {
+        return res.status(400).json({ error: err.message || 'Upload failed' });
+      }
+      next();
+    });
+  };
 }
 
 // Configure multer for profile picture uploads
@@ -107,13 +161,11 @@ const uploadCertificate = multer({
 // Configure multer for announcement images
 const announcementStorage = multer.diskStorage({
   destination: function (req, file, cb) {
+    fs.mkdirSync(announcementsDir, { recursive: true });
     cb(null, announcementsDir);
   },
   filename: function (req, file, cb) {
-    // Generate unique filename: announcement-timestamp.extension
-    const timestamp = Date.now();
-    const ext = path.extname(file.originalname);
-    cb(null, `announcement-${timestamp}${ext}`);
+    cb(null, `announcement-${Date.now()}${imageExtension(file)}`);
   }
 });
 
@@ -123,18 +175,15 @@ const uploadAnnouncement = multer({
     fileSize: 5 * 1024 * 1024 // 5MB limit
   },
   fileFilter: function (req, file, cb) {
-    // Accept only image files
     const allowedTypes = /jpeg|jpg|png|gif|webp/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-    
-    if (mimetype && extname) {
+    const extname = allowedTypes.test(path.extname(file.originalname || '').toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype || '') || String(file.mimetype || '').startsWith('image/');
+
+    if (mimetype || extname) {
       return cb(null, true);
-    } else {
-      // Store error in request for later handling
-      req.fileValidationError = `File type not allowed. Only image files (JPG, PNG, GIF, WEBP) are allowed. Got: ${file.mimetype}`;
-      cb(new Error(req.fileValidationError));
     }
+    req.fileValidationError = `File type not allowed. Only image files (JPG, PNG, GIF, WEBP) are allowed. Got: ${file.mimetype}`;
+    cb(new Error(req.fileValidationError));
   }
 });
 
@@ -142,6 +191,15 @@ const uploadAnnouncement = multer({
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static(uploadsRoot));
+app.get('/uploads/announcements/:file', (req, res, next) => {
+  const name = path.basename(req.params.file);
+  const disk = path.join(announcementsDir, name);
+  const fallback = path.join(__dirname, 'public', 'uploads', 'announcements', name);
+  if (fs.existsSync(disk)) return res.sendFile(path.resolve(disk));
+  if (fs.existsSync(fallback)) return res.sendFile(path.resolve(fallback));
+  next();
+});
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Email transporter (using Gmail SMTP)
@@ -2851,7 +2909,7 @@ app.get('/api/admin/announcements', authenticateToken, requireAdmin, async (req,
 });
 
 // Create announcement (admin only) - with optional image upload
-app.post('/api/admin/announcements', authenticateToken, requireAdmin, uploadAnnouncement.single('image'), async (req, res) => {
+app.post('/api/admin/announcements', authenticateToken, requireAdmin, handleMulter(uploadAnnouncement.single('image')), async (req, res) => {
   try {
     // Handle multer errors
     if (req.fileValidationError) {
@@ -2921,7 +2979,7 @@ app.post('/api/admin/announcements', authenticateToken, requireAdmin, uploadAnno
 });
 
 // Update announcement (admin only) - with optional image upload
-app.put('/api/admin/announcements/:id', authenticateToken, requireAdmin, uploadAnnouncement.single('image'), async (req, res) => {
+app.put('/api/admin/announcements/:id', authenticateToken, requireAdmin, handleMulter(uploadAnnouncement.single('image')), async (req, res) => {
   try {
     // Handle multer errors
     if (req.fileValidationError) {
@@ -2966,10 +3024,7 @@ app.put('/api/admin/announcements/:id', authenticateToken, requireAdmin, uploadA
     if (req.file) {
       // New image uploaded - delete old one if exists
       if (existing.image_path) {
-        const oldFilePath = path.join(__dirname, 'public', existing.image_path);
-        if (fs.existsSync(oldFilePath)) {
-          fs.unlinkSync(oldFilePath);
-        }
+        deleteUpload(existing.image_path);
       }
       const imagePath = `/uploads/announcements/${req.file.filename}`;
       updates.push('image_path = ?');
@@ -2977,10 +3032,7 @@ app.put('/api/admin/announcements/:id', authenticateToken, requireAdmin, uploadA
     } else if (remove_image === 'true' || remove_image === true) {
       // Remove image
       if (existing.image_path) {
-        const oldFilePath = path.join(__dirname, 'public', existing.image_path);
-        if (fs.existsSync(oldFilePath)) {
-          fs.unlinkSync(oldFilePath);
-        }
+        deleteUpload(existing.image_path);
       }
       updates.push('image_path = NULL');
     }
@@ -3047,23 +3099,7 @@ app.delete('/api/admin/announcements/:id', authenticateToken, requireAdmin, asyn
 
     // Delete image file if exists (non-blocking)
     if (existing.image_path) {
-      try {
-        // Normalize image path - remove leading slash if present to avoid path.join issues
-        const normalizedImagePath = existing.image_path.startsWith('/') 
-          ? existing.image_path.substring(1) 
-          : existing.image_path;
-        const imageFilePath = path.join(__dirname, 'public', normalizedImagePath);
-        
-        if (fs.existsSync(imageFilePath)) {
-          fs.unlinkSync(imageFilePath);
-          console.log(`[DELETE] Deleted image file: ${imageFilePath}`);
-        } else {
-          console.log(`[DELETE] Image file not found (skipping): ${imageFilePath}`);
-        }
-      } catch (unlinkErr) {
-        // Log error but don't fail the deletion if image can't be deleted
-        console.error('[DELETE] Error deleting announcement image file (non-critical):', unlinkErr.message);
-      }
+      deleteUpload(existing.image_path);
     }
 
     // Delete from database
