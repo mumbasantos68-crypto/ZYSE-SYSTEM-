@@ -118,11 +118,13 @@ function renderRegister() {
           <input type="password" id="registerConfirmPassword" name="confirmPassword" required autocomplete="new-password" minlength="6">
         </div>
         <div class="whatsapp-join-box">
-          <p>Join WhatsApp for official updates and more.</p>
-          <a class="btn btn-whatsapp" href="https://chat.whatsapp.com/LoVKTQEmJmKCH87VxZvURy" target="_blank" rel="noopener noreferrer">Join the official WhatsApp group</a>
+          <a class="btn-whatsapp" href="https://chat.whatsapp.com/LoVKTQEmJmKCH87VxZvURy" target="_blank" rel="noopener noreferrer">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12.04 2C6.58 2 2.15 6.37 2.15 11.75c0 1.72.46 3.4 1.33 4.88L2 22l5.54-1.44a10.1 10.1 0 0 0 4.5 1.07h.01c5.46 0 9.89-4.37 9.89-9.75S17.5 2 12.04 2zm5.76 13.83c-.24.68-1.4 1.25-1.94 1.33-.5.07-1.14.1-1.84-.12-.42-.13-.97-.32-1.67-.62-2.94-1.27-4.85-4.22-5-4.41-.14-.2-1.18-1.56-1.18-2.98 0-1.41.74-2.11 1-2.4.26-.28.57-.35.76-.35h.55c.18 0 .42-.07.65.5.24.58.82 2 .89 2.15.07.14.12.31.02.5-.1.2-.15.31-.3.48-.14.16-.3.36-.43.48-.14.14-.29.29-.12.56.16.28.73 1.2 1.56 1.94 1.08.96 1.98 1.26 2.26 1.4.28.14.44.12.6-.07.16-.2.7-.81.88-1.09.19-.28.37-.23.62-.14.26.1 1.63.77 1.91.91.28.14.47.21.54.32.07.12.07.68-.17 1.36z"/></svg>
+            Join WhatsApp group
+          </a>
           <label class="whatsapp-join-check" for="registerJoinedGroup">
             <input type="checkbox" id="registerJoinedGroup" name="registerJoinedGroup" required>
-            <span>I have joined the official ZYSE WhatsApp group</span>
+            <span>I have joined the official group</span>
           </label>
         </div>
         <button type="submit" class="btn">Register</button>
