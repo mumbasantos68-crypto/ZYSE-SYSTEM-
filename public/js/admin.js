@@ -385,24 +385,25 @@ function renderDepositsTable(deposits) {
   return `
     ${pendingDeposits.length > 0 ? `
       <div class="admin-alert">
-        <strong>${pendingDeposits.length} pending deposit(s) waiting for approval</strong>
+        <strong>${pendingDeposits.length} pending</strong>
       </div>
     ` : ''}
-    <table class="table">
+    <div class="admin-scroll-table">
+    <table class="table admin-deposits-table">
       <thead>
         <tr>
-          <th style="width: 30px;">
+          <th>
             <input type="checkbox" id="selectAllDeposits" onchange="toggleAllDeposits(this.checked)">
           </th>
           <th>ID</th>
-          <th>User Name</th>
-          <th>Phone Number</th>
+          <th>Name</th>
+          <th>Phone</th>
           <th>Amount</th>
-          <th>Level</th>
-          <th>Transaction TXT</th>
+          <th>Lvl</th>
+          <th>TXT</th>
           <th>Wallet</th>
           <th>Status</th>
-          <th>Deposit Date</th>
+          <th>Date</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -413,40 +414,37 @@ function renderDepositsTable(deposits) {
               <input type="checkbox" class="deposit-checkbox" value="${deposit.investment_id}" id="dep_${deposit.investment_id}" onchange="updateDepositsDeleteButton(); updateSelectedDepositsCount();">
             </td>
             <td>${deposit.investment_id}</td>
-            <td>${deposit.full_name || deposit.email || 'N/A'}</td>
-            <td>${deposit.phone || 'N/A'}</td>
-            <td>K${deposit.amount.toFixed(2)}</td>
-            <td>${deposit.level || 'N/A'}</td>
-            <td>
-              <code>
-                ${deposit.transaction_txt || 'N/A'}
-              </code>
-            </td>
-            <td>${deposit.wallet ? deposit.wallet.toUpperCase() : 'N/A'}</td>
+            <td class="admin-cell-strong">${deposit.full_name || deposit.email || '—'}</td>
+            <td>${deposit.phone || '—'}</td>
+            <td>K${Number(deposit.amount || 0).toFixed(2)}</td>
+            <td>${deposit.level || '—'}</td>
+            <td><code class="admin-tx" title="${deposit.transaction_txt || ''}">${deposit.transaction_txt || '—'}</code></td>
+            <td>${deposit.wallet ? deposit.wallet.toUpperCase() : '—'}</td>
             <td>
               <span class="badge ${deposit.status === 'active' ? 'badge-success' : deposit.status === 'pending' ? 'badge-warning' : deposit.status === 'matured' ? 'badge-warning' : deposit.status === 'withdrawn' ? 'badge-danger' : deposit.status === 'denied' ? 'badge-danger' : 'badge-secondary'}">
                 ${deposit.status}
               </span>
             </td>
-            <td>${formatDateTime(deposit.deposit_date)}</td>
+            <td class="admin-cell-date">${formatDateTime(deposit.deposit_date)}</td>
             <td>
               ${deposit.status === 'pending' ? `
-                <button class="btn btn-success" onclick="processDeposit(${deposit.investment_id}, 'approve')">Approve</button>
-                <button class="btn btn-danger" onclick="processDeposit(${deposit.investment_id}, 'deny')">Deny</button>
-              ` : `
-                <span class="empty-state">Processed</span>
-              `}
+                <div class="admin-row-actions">
+                  <button type="button" class="admin-chip" onclick="processDeposit(${deposit.investment_id}, 'approve')">Approve</button>
+                  <button type="button" class="admin-chip danger" onclick="processDeposit(${deposit.investment_id}, 'deny')">Deny</button>
+                </div>
+              ` : '<span class="empty-state">Done</span>'}
             </td>
           </tr>
         `).join('')}
       </tbody>
     </table>
+    </div>
     <div class="admin-bulk-bar">
-      <strong>Selected: <span id="selectedDepositsCount">0</span> deposit(s)</strong>
+      <strong>Selected: <span id="selectedDepositsCount">0</span></strong>
       ${pendingDeposits.length > 0 ? `
-        <div>
-          <button class="btn btn-success" onclick="bulkApproveDeposits()">Approve selected</button>
-          <button class="btn btn-danger" onclick="bulkDenyDeposits()">Deny selected</button>
+        <div class="admin-row-actions">
+          <button type="button" class="admin-chip" onclick="bulkApproveDeposits()">Approve selected</button>
+          <button type="button" class="admin-chip danger" onclick="bulkDenyDeposits()">Deny selected</button>
         </div>
       ` : ''}
     </div>
@@ -460,60 +458,63 @@ function renderWithdrawalRequests(requests) {
   }
 
   return `
-    <table class="table">
+    <div class="admin-scroll-table">
+    <table class="table admin-deposits-table">
       <thead>
         <tr>
-          <th style="width: 30px;">
+          <th>
             <input type="checkbox" id="selectAllRequests" onchange="toggleAllRequests(this.checked)">
           </th>
           <th>ID</th>
-          <th>User</th>
-          <th>Amount</th>
-          <th>Charge</th>
-          <th>Net Amount</th>
+          <th>Name</th>
+          <th>Gross</th>
+          <th>Fee</th>
+          <th>Net</th>
           <th>Wallet</th>
           <th>Phone</th>
           <th>Status</th>
-          <th>Requested</th>
+          <th>Date</th>
           <th>Actions</th>
         </tr>
       </thead>
       <tbody>
         ${requests.map(req => `
-          <tr>
+          <tr class="${req.status === 'pending' ? 'is-pending' : ''}">
             <td>
               <input type="checkbox" class="request-checkbox" value="${req.id}" id="req_${req.id}" onchange="updateSelectedCount(); updateWithdrawalRequestsDeleteButton();">
             </td>
             <td>${req.id}</td>
-            <td>${req.full_name || req.phone || req.email || 'N/A'}</td>
-            <td>K${req.gross_amount.toFixed(2)}</td>
-            <td>K${req.charge.toFixed(2)}</td>
-            <td>K${req.net_amount.toFixed(2)}</td>
-            <td>${req.wallet.toUpperCase()}</td>
-            <td>${req.phone || 'N/A'}</td>
+            <td class="admin-cell-strong">${req.full_name || req.phone || req.email || '—'}</td>
+            <td>K${Number(req.gross_amount || 0).toFixed(2)}</td>
+            <td>K${Number(req.charge || 0).toFixed(2)}</td>
+            <td>K${Number(req.net_amount || 0).toFixed(2)}</td>
+            <td>${req.wallet ? req.wallet.toUpperCase() : '—'}</td>
+            <td>${req.phone || '—'}</td>
             <td>
               <span class="badge ${req.status === 'pending' ? 'badge-warning' : req.status === 'paid' ? 'badge-success' : req.status === 'denied' ? 'badge-danger' : 'badge-secondary'}">
                 ${req.status}
               </span>
             </td>
-            <td>${formatDateTime(req.requested_at)}</td>
+            <td class="admin-cell-date">${formatDateTime(req.requested_at)}</td>
             <td>
               ${req.status === 'pending' ? `
-                <button class="btn btn-success" onclick="processWithdrawalRequest(${req.id}, 'approve')">Approve</button>
-                <button class="btn btn-danger" onclick="processWithdrawalRequest(${req.id}, 'deny')">Deny</button>
-              ` : `
-                <span class="empty-state">Processed</span>
-              `}
+                <div class="admin-row-actions">
+                  <button type="button" class="admin-chip" onclick="processWithdrawalRequest(${req.id}, 'approve')">Approve</button>
+                  <button type="button" class="admin-chip danger" onclick="processWithdrawalRequest(${req.id}, 'deny')">Deny</button>
+                </div>
+              ` : '<span class="empty-state">Done</span>'}
             </td>
           </tr>
         `).join('')}
       </tbody>
     </table>
+    </div>
     <div class="admin-bulk-bar">
-      <strong>Bulk actions</strong>
-      <button class="btn btn-success" onclick="bulkApproveRequests()">Approve selected</button>
-      <button class="btn btn-danger" onclick="bulkDenyRequests()">Deny selected</button>
-      <span id="selectedCount" class="empty-state">0 selected</span>
+      <strong>Selected: <span id="selectedCount">0</span></strong>
+      <div class="admin-row-actions">
+        <button type="button" class="admin-chip" onclick="bulkApproveRequests()">Approve selected</button>
+        <button type="button" class="admin-chip danger" onclick="bulkDenyRequests()">Deny selected</button>
+      </div>
     </div>
   `;
 }
@@ -650,7 +651,7 @@ function updateSelectedCount() {
   const selected = document.querySelectorAll('.request-checkbox:checked').length;
   const countEl = document.getElementById('selectedCount');
   if (countEl) {
-    countEl.textContent = `${selected} selected`;
+    countEl.textContent = selected;
   }
 }
 

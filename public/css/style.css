@@ -1131,6 +1131,63 @@ body.app-shell {
   color: #e2e8f0;
 }
 
+.admin-scroll-table {
+  max-height: min(42vh, 380px);
+  overflow: auto;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 10px;
+  background: rgba(2, 8, 20, 0.35);
+}
+
+.admin-deposits-table {
+  min-width: 780px;
+  margin-top: 0;
+}
+
+.admin-deposits-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  box-shadow: 0 1px 0 rgba(148, 163, 184, 0.25);
+}
+
+.admin-deposits-table th,
+.admin-deposits-table td {
+  padding: 6px 8px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.admin-deposits-table th {
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.admin-deposits-table .badge {
+  padding: 2px 7px;
+  font-size: 0.65rem;
+  border-radius: 999px;
+}
+
+.admin-tx {
+  display: inline-block;
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+  font-size: 0.72rem;
+}
+
+.admin-deposits-table .admin-chip {
+  height: 26px;
+  padding: 0 8px;
+  font-size: 0.7rem;
+}
+
 .admin-users-table {
   min-width: 100%;
   table-layout: auto;
