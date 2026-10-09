@@ -1240,6 +1240,14 @@ body.app-shell {
   letter-spacing: 0.02em;
 }
 
+.admin-cell-name {
+  font-weight: 700;
+  color: #f8fafc;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .admin-cell-email {
   max-width: 140px;
   overflow: hidden;

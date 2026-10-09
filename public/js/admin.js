@@ -108,6 +108,7 @@ function renderUsersTable(users) {
       <thead>
         <tr>
           <th>#</th>
+          <th>Name</th>
           <th>Phone</th>
           <th>Email</th>
           <th>Invited by</th>
@@ -120,10 +121,12 @@ function renderUsersTable(users) {
       <tbody>
         ${users.map((user, index) => {
           const phone = getAdminUserPhone(user);
-          const safeName = (phone || user.email || 'User').replace(/'/g, "\\'");
+          const displayName = user.full_name || '—';
+          const safeName = (displayName !== '—' ? displayName : (phone || user.email || 'User')).replace(/'/g, "\\'");
           return `
             <tr>
               <td>${index + 1}</td>
+              <td class="admin-cell-name" title="${String(displayName).replace(/"/g, '&quot;')}">${displayName}</td>
               <td class="admin-cell-strong">${phone || '—'}</td>
               <td class="admin-cell-email" title="${user.email || ''}">${user.email || '—'}</td>
               <td>${user.invited_by_phone || user.invited_by_email || (user.invited_by_user_id ? `User #${user.invited_by_user_id}` : '—')}</td>
@@ -1222,9 +1225,10 @@ async function exportUsers() {
     const getUserPhone = (u) => (u && (u.phone || u.phone_number || u.phoneNumber || u.msisdn || u.mobile || u.contact_phone || u.contact)) || '';
 
     // Generate CSV
-    const headers = ['ID', 'Phone', 'Email', 'Invited By', 'Created At', 'Is Admin'];
+    const headers = ['ID', 'Name', 'Phone', 'Email', 'Invited By', 'Created At', 'Is Admin'];
     const rows = users.map(user => [
       user.id,
+      user.full_name || '',
       getUserPhone(user),
       user.email,
       (user.invited_by_phone || user.invited_by_email || (user.invited_by_user_id ? `User #${user.invited_by_user_id}` : '')),

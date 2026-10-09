@@ -254,7 +254,7 @@ app.get('/api/health', async (req, res) => {
 app.post('/api/register', [
   body('phone').trim().notEmpty().withMessage('Phone number is required').matches(/^[0-9]{9,10}$/).withMessage('Phone number must be 9-10 digits'),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
-  body('full_name').optional().trim(),
+  body('full_name').trim().notEmpty().withMessage('Full name is required').isLength({ min: 2, max: 80 }).withMessage('Full name must be 2-80 characters'),
   body('email').optional(),
   body('referral_code').optional().trim()
 ], async (req, res) => {
@@ -392,7 +392,7 @@ app.post('/api/register', [
       console.log('Step 5c: Final insert values:', {
         phone: normalizedPhone,
         hasPasswordHash: !!passwordHash,
-        full_name: full_name || null,
+        full_name: String(full_name).trim(),
         email: emailForInsert,
         isAdmin: isAdmin ? 1 : 0,
         invitedByUserId: finalInvitedByUserId,
@@ -401,7 +401,7 @@ app.post('/api/register', [
       
       result = await dbRun(
         'INSERT INTO users (phone, password_hash, full_name, email, is_admin, invited_by_user_id, level) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [normalizedPhone, passwordHash, full_name || null, emailForInsert, isAdmin ? 1 : 0, finalInvitedByUserId, 'L0']
+        [normalizedPhone, passwordHash, String(full_name).trim(), emailForInsert, isAdmin ? 1 : 0, finalInvitedByUserId, 'L0']
       );
       console.log('Step 5b: User inserted successfully, ID:', result.lastID);
     } catch (dbError) {
@@ -415,9 +415,18 @@ app.post('/api/register', [
       throw dbError; // Re-throw to be caught by outer catch
     }
 
-    // No email sent - user will login with phone number
+    const WELCOME_BONUS = 20;
+    try {
+      await dbRun(
+        'INSERT INTO transactions (user_id, type, amount, date) VALUES (?, ?, ?, datetime("now"))',
+        [result.lastID, 'bonus', WELCOME_BONUS]
+      );
+      console.log(`Welcome bonus K${WELCOME_BONUS} added for user ${result.lastID}`);
+    } catch (bonusErr) {
+      console.error('Welcome bonus failed:', bonusErr.message);
+    }
 
-    res.json({ message: 'Registration successful', userId: result.lastID });
+    res.json({ message: 'Registration successful', userId: result.lastID, welcomeBonus: WELCOME_BONUS });
   } catch (error) {
     console.error('Registration error:', error);
     console.error('Registration error details:', {
@@ -1984,6 +1993,7 @@ app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) =>
     const users = await dbQuery(
       `SELECT 
         u.id, 
+        u.full_name,
         u.email, 
         u.phone, 
         u.created_at, 

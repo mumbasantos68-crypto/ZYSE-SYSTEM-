@@ -117,6 +117,22 @@ async function handleRegister(e) {
   const joinedGroup = form.registerJoinedGroup?.checked || form.querySelector('#registerJoinedGroup')?.checked;
   const submitBtn = form.querySelector('button[type="submit"]');
 
+  if (!fullName || fullName.trim().length < 2) {
+    const messageDiv = document.querySelector('.message');
+    const text = 'Full name is required';
+    if (messageDiv) {
+      messageDiv.textContent = text;
+      messageDiv.className = 'message error';
+    } else {
+      const formContainer = document.querySelector('.form-container');
+      const errorMsg = document.createElement('div');
+      errorMsg.className = 'message error';
+      errorMsg.textContent = text;
+      formContainer.insertBefore(errorMsg, formContainer.firstChild);
+    }
+    return;
+  }
+
   // Validate phone number
   if (!phone || phone.length < 9) {
     const messageDiv = document.querySelector('.message');
@@ -173,7 +189,7 @@ async function handleRegister(e) {
     const requestBody = { 
       phone: phone.trim(),
       password,
-      full_name: fullName && fullName.trim() ? fullName.trim() : undefined,
+      full_name: fullName.trim(),
       ...(email && email.trim() ? { email: email.trim() } : {}), // Only include email if provided
       ...(referralCode && referralCode.trim() ? { referral_code: referralCode.trim() } : {}) // Only include referral_code if provided
     };
@@ -226,7 +242,7 @@ async function handleRegister(e) {
     const successMsg = document.createElement('div');
     successMsg.className = 'message success';
     successMsg.style.cssText = 'background: #d4edda; color: #155724; border: 1px solid #c3e6cb; padding: 15px; border-radius: 5px; margin-bottom: 20px; font-weight: bold; text-align: center;';
-    successMsg.innerHTML = 'Registered successfully.<br><small style="font-weight: normal;">Stay in the official WhatsApp group for updates, then login.</small>';
+    successMsg.innerHTML = 'Registered successfully. K20 welcome bonus added.<br><small style="font-weight: normal;">Stay in the official WhatsApp group for updates, then login.</small>';
     formContainer.insertBefore(successMsg, formContainer.firstChild);
     
     // Clear form

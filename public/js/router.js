@@ -99,8 +99,8 @@ function renderRegister() {
       ${messageHTML}
       <form id="registerForm">
         <div class="form-group">
-          <label for="registerFullName">Full Name</label>
-          <input type="text" id="registerFullName" name="fullName" autocomplete="name">
+          <label for="registerFullName">Full Name <span style="color: red;">*</span></label>
+          <input type="text" id="registerFullName" name="fullName" required autocomplete="name" minlength="2" maxlength="80">
         </div>
         <div class="form-group">
           <label for="registerPhone">Phone Number <span style="color: red;">*</span></label>
