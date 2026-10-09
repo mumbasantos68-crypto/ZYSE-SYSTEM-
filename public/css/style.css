@@ -1188,6 +1188,12 @@ body.app-shell {
   font-size: 0.7rem;
 }
 
+.admin-deposits-table select {
+  padding: 3px 6px;
+  font-size: 0.72rem;
+  min-height: 26px;
+}
+
 .admin-users-table {
   min-width: 720px;
   margin-top: 0;

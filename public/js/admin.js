@@ -178,19 +178,19 @@ function renderAdminDashboard(users, investments, stats, withdrawalRequests, dep
 
   const usersHTML = renderUsersTable(sortedUsers);
 
-  // Investments table
   const investmentsHTML = investments.length === 0 ?
     '<p class="empty-state">No investments found.</p>' :
     `
-      <table class="table">
+      <div class="admin-scroll-table">
+      <table class="table admin-deposits-table">
         <thead>
           <tr>
             <th>ID</th>
             <th>User</th>
-            <th>Package</th>
+            <th>Pkg</th>
             <th>Amount</th>
-            <th>Start Date</th>
-            <th>Maturity Date</th>
+            <th>Start</th>
+            <th>Mature</th>
             <th>Accruals</th>
             <th>Status</th>
             <th>Actions</th>
@@ -200,12 +200,12 @@ function renderAdminDashboard(users, investments, stats, withdrawalRequests, dep
           ${investments.map(investment => `
             <tr>
               <td>${investment.id}</td>
-              <td>${investment.email}</td>
-              <td>K${investment.package_amount}</td>
-              <td>K${investment.deposit_amount.toFixed(2)}</td>
-              <td>${formatDate(investment.start_date)}</td>
-              <td>${formatDate(investment.maturity_date)}</td>
-              <td>K${investment.total_accruals.toFixed(2)}</td>
+              <td class="admin-cell-strong">${investment.full_name || investment.phone || investment.email || '—'}</td>
+              <td>K${Number(investment.package_amount || 0).toFixed(0)}</td>
+              <td>K${Number(investment.deposit_amount || 0).toFixed(2)}</td>
+              <td class="admin-cell-date">${formatDate(investment.start_date)}</td>
+              <td class="admin-cell-date">${investment.maturity_date ? formatDate(investment.maturity_date) : '—'}</td>
+              <td>K${Number(investment.total_accruals || 0).toFixed(2)}</td>
               <td>
                 <select onchange="updateInvestmentStatus(${investment.id}, this.value)">
                   <option value="active" ${investment.status === 'active' ? 'selected' : ''}>Active</option>
@@ -214,12 +214,13 @@ function renderAdminDashboard(users, investments, stats, withdrawalRequests, dep
                 </select>
               </td>
               <td>
-                <button class="btn btn-success" onclick="viewInvestment(${investment.id})">View</button>
+                <button type="button" class="admin-chip" onclick="viewInvestment(${investment.id})">View</button>
               </td>
             </tr>
           `).join('')}
         </tbody>
       </table>
+      </div>
     `;
 
   const pendingRequests = withdrawalRequests.filter(r => r.status === 'pending');
