@@ -118,7 +118,7 @@ function renderRegister() {
           <input type="password" id="registerConfirmPassword" name="confirmPassword" required autocomplete="new-password" minlength="6">
         </div>
         <div class="whatsapp-join-box">
-          <p>You will have to join the official group. New members start with <strong>no level (L0)</strong> until they invest.</p>
+          <p>Join WhatsApp for official updates and more.</p>
           <a class="btn btn-whatsapp" href="https://chat.whatsapp.com/LoVKTQEmJmKCH87VxZvURy" target="_blank" rel="noopener noreferrer">Join the official WhatsApp group</a>
           <label class="whatsapp-join-check" for="registerJoinedGroup">
             <input type="checkbox" id="registerJoinedGroup" name="registerJoinedGroup" required>

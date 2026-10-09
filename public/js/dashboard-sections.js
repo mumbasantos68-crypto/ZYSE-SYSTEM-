@@ -215,7 +215,7 @@ async function loadHomeSection() {
       <div id="homeAnnouncements">${announcementsHTML || ''}</div>
 
       <div class="home-whatsapp">
-        <p>Join the official ZYSE WhatsApp group for updates and support. New members start with no level (L0) until they invest.</p>
+        <p>Join WhatsApp for official updates and more.</p>
         <a href="${ZYSE_WHATSAPP_GROUP}" target="_blank" rel="noopener noreferrer">Join official group</a>
       </div>
 

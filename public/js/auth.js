@@ -226,7 +226,7 @@ async function handleRegister(e) {
     const successMsg = document.createElement('div');
     successMsg.className = 'message success';
     successMsg.style.cssText = 'background: #d4edda; color: #155724; border: 1px solid #c3e6cb; padding: 15px; border-radius: 5px; margin-bottom: 20px; font-weight: bold; text-align: center;';
-    successMsg.innerHTML = 'Registered successfully. You start with no level (L0).<br><small style="font-weight: normal;">Stay in the official WhatsApp group, then login.</small>';
+    successMsg.innerHTML = 'Registered successfully.<br><small style="font-weight: normal;">Stay in the official WhatsApp group for updates, then login.</small>';
     formContainer.insertBefore(successMsg, formContainer.firstChild);
     
     // Clear form
