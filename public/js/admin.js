@@ -111,6 +111,7 @@ function renderUsersTable(users) {
           <th>Email</th>
           <th>Invited by</th>
           <th>Joined</th>
+          <th>Level</th>
           <th>Role</th>
           <th>Actions</th>
         </tr>
@@ -126,6 +127,7 @@ function renderUsersTable(users) {
               <td class="admin-cell-email">${user.email || '—'}</td>
               <td>${user.invited_by_phone || user.invited_by_email || (user.invited_by_user_id ? `User #${user.invited_by_user_id}` : '—')}</td>
               <td class="admin-cell-date">${formatDateTime(user.created_at)}</td>
+              <td>${!user.level || user.level === 'L0' ? 'L0' : user.level}</td>
               <td>${user.is_admin ? '<span class="admin-role">Admin</span>' : 'Member'}</td>
               <td>
                 <div class="admin-row-actions">

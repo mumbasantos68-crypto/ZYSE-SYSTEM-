@@ -1,5 +1,12 @@
 // Dashboard sections navigation and content management
 
+const ZYSE_WHATSAPP_GROUP = 'https://chat.whatsapp.com/LoVKTQEmJmKCH87VxZvURy';
+
+function formatMemberLevel(level) {
+  if (!level || level === 'L0' || level === '0') return 'No level (L0)';
+  return level;
+}
+
 // Use API_BASE from window (set by auth.js) - don't redeclare, just reference
 // Since auth.js is loaded first, API_BASE should already be available on window
 // We'll reference window.API_BASE directly in functions that need it
@@ -206,6 +213,11 @@ async function loadHomeSection() {
       </section>
 
       <div id="homeAnnouncements">${announcementsHTML || ''}</div>
+
+      <div class="home-whatsapp">
+        <p>Join the official ZYSE WhatsApp group for updates and support. New members start with no level (L0) until they invest.</p>
+        <a href="${ZYSE_WHATSAPP_GROUP}" target="_blank" rel="noopener noreferrer">Join official group</a>
+      </div>
 
       <div class="home-actions">
         <button type="button" class="home-action" onclick="showSection('levels')">
@@ -757,7 +769,7 @@ async function loadCareersSection() {
   try {
     const data = await authenticatedApiCall(`${window.API_BASE || ''}/api/careers`, { method: 'GET' });
     const inviteCount = Number(data.inviteCount || 0);
-    const levelLabel = data.level ? escapeDailyHtml(data.level) : 'None yet';
+    const levelLabel = escapeDailyHtml(formatMemberLevel(data.level));
     const roles = data.roles || [];
 
     const cards = roles.map((role) => {
@@ -1332,7 +1344,7 @@ async function loadMeSection() {
     const currentBalance = (totalDeposits || 0) + (allAccrualsAndBonuses || 0) - (totalWithdrawn || 0) - (investmentsFromBalance || 0);
 
     // Get user profile - use authenticatedApiCall for consistent error handling
-    let profileData = { full_name: '', phone: '', level: 'L1', withdrawal_wallet: '', withdrawal_phone: '', profile_picture: '', has_withdrawal_password: false };
+    let profileData = { full_name: '', phone: '', level: 'L0', withdrawal_wallet: '', withdrawal_phone: '', profile_picture: '', has_withdrawal_password: false };
     try {
       profileData = await authenticatedApiCall(`${window.API_BASE || ''}/api/profile`, {
         method: 'GET'
@@ -1364,7 +1376,7 @@ async function loadMeSection() {
         <h2 style="color: white; margin-bottom: 10px;">${getDisplayName(profileData, user)}</h2>
         <p style="margin-top: 10px;">
           <span style="display: inline-block; padding: 10px 20px; background: rgba(255,255,255,0.2); border-radius: 20px; font-weight: bold; font-size: 1.2rem;">
-            ${profileData.level || 'L1'}
+            ${formatMemberLevel(profileData.level)}
           </span>
         </p>
       </div>
@@ -1454,7 +1466,7 @@ async function loadMeSection() {
           <span class="info-label">Current Level:</span>
           <span class="info-value">
             <span style="display: inline-block; padding: 5px 15px; background: #007BFF; color: white; border-radius: 15px; font-weight: bold;">
-              ${profileData.level || 'L1'}
+              ${formatMemberLevel(profileData.level)}
             </span>
           </span>
         </div>

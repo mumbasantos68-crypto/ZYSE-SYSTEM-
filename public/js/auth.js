@@ -114,6 +114,7 @@ async function handleRegister(e) {
   const password = form.registerPassword.value;
   const confirmPassword = form.registerConfirmPassword.value;
   const referralCode = form.registerReferralCode?.value || '';
+  const joinedGroup = form.registerJoinedGroup?.checked || form.querySelector('#registerJoinedGroup')?.checked;
   const submitBtn = form.querySelector('button[type="submit"]');
 
   // Validate phone number
@@ -127,6 +128,22 @@ async function handleRegister(e) {
       const errorMsg = document.createElement('div');
       errorMsg.className = 'message error';
       errorMsg.textContent = 'Phone number is required (9-10 digits)';
+      formContainer.insertBefore(errorMsg, formContainer.firstChild);
+    }
+    return;
+  }
+
+  if (!joinedGroup) {
+    const messageDiv = document.querySelector('.message');
+    const text = 'Join the official WhatsApp group, then tick the box to register.';
+    if (messageDiv) {
+      messageDiv.textContent = text;
+      messageDiv.className = 'message error';
+    } else {
+      const formContainer = document.querySelector('.form-container');
+      const errorMsg = document.createElement('div');
+      errorMsg.className = 'message error';
+      errorMsg.textContent = text;
       formContainer.insertBefore(errorMsg, formContainer.firstChild);
     }
     return;
@@ -209,7 +226,7 @@ async function handleRegister(e) {
     const successMsg = document.createElement('div');
     successMsg.className = 'message success';
     successMsg.style.cssText = 'background: #d4edda; color: #155724; border: 1px solid #c3e6cb; padding: 15px; border-radius: 5px; margin-bottom: 20px; font-weight: bold; text-align: center;';
-    successMsg.innerHTML = '✅ Registered Successfully!<br><small style="font-weight: normal;">Redirecting to login...</small>';
+    successMsg.innerHTML = 'Registered successfully. You start with no level (L0).<br><small style="font-weight: normal;">Stay in the official WhatsApp group, then login.</small>';
     formContainer.insertBefore(successMsg, formContainer.firstChild);
     
     // Clear form

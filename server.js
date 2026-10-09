@@ -1295,7 +1295,7 @@ app.get('/api/profile', authenticateToken, async (req, res) => {
       id: user.id, // Include user ID for referral links
       full_name: fullName,
       phone: user.phone || '',
-      level: user.level || 'L1',
+      level: user.level || 'L0',
       email: userEmail,
       withdrawal_wallet: user.withdrawal_wallet || '',
       withdrawal_phone: user.withdrawal_phone || '',
@@ -1929,6 +1929,7 @@ app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) =>
         u.email, 
         u.phone, 
         u.created_at, 
+        u.level,
         u.is_admin,
         u.invited_by_user_id,
         inviter.phone as invited_by_phone,

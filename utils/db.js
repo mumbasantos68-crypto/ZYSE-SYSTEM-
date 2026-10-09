@@ -245,7 +245,7 @@ function initializeTables(db, resolve, reject) {
         password_hash TEXT NOT NULL,
         full_name TEXT,
         phone TEXT UNIQUE NOT NULL,
-        level TEXT DEFAULT 'L1',
+        level TEXT DEFAULT 'L0',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         is_admin INTEGER DEFAULT 0,
         invited_by_user_id INTEGER,
@@ -258,7 +258,7 @@ function initializeTables(db, resolve, reject) {
           // Add new columns if they don't exist (for existing databases)
           db.run(`ALTER TABLE users ADD COLUMN full_name TEXT`, () => {});
           db.run(`ALTER TABLE users ADD COLUMN phone TEXT`, () => {});
-          db.run(`ALTER TABLE users ADD COLUMN level TEXT DEFAULT 'L1'`, () => {});
+          db.run(`ALTER TABLE users ADD COLUMN level TEXT DEFAULT 'L0'`, () => {});
           db.run(`ALTER TABLE users ADD COLUMN withdrawal_password TEXT`, () => {});
           db.run(`ALTER TABLE users ADD COLUMN withdrawal_wallet TEXT`, () => {});
           db.run(`ALTER TABLE users ADD COLUMN withdrawal_phone TEXT`, () => {});

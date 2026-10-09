@@ -225,6 +225,80 @@ body.app-shell {
   font-size: 0.85em;
 }
 
+.whatsapp-join-box {
+  margin: 8px 0 22px;
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(37, 211, 102, 0.12);
+  border: 1px solid rgba(37, 211, 102, 0.4);
+}
+
+.whatsapp-join-box p {
+  margin: 0 0 12px;
+  color: #ffffff;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.btn-whatsapp {
+  display: block;
+  width: 100%;
+  margin-bottom: 14px;
+  background: #25d366;
+  color: #08321a;
+  font-weight: 700;
+}
+
+.btn-whatsapp:hover {
+  background: #1ebe5a;
+  color: #08321a;
+}
+
+.whatsapp-join-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #ffffff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.whatsapp-join-check input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.home-whatsapp {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 18px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: #ecfdf3;
+  border: 1px solid #86efac;
+  color: #14532d;
+}
+
+.home-whatsapp p {
+  margin: 0;
+  flex: 1;
+  min-width: 200px;
+}
+
+.home-whatsapp a {
+  background: #25d366;
+  color: #08321a;
+  font-weight: 700;
+  padding: 10px 16px;
+  border-radius: 8px;
+  text-decoration: none;
+}
+
 .btn {
   display: inline-block;
   padding: 10px 18px;
