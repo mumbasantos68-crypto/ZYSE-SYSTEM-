@@ -141,6 +141,7 @@ function showSection(sectionName) {
     dashboard: { el: 'dashboardContent', fn: loadDashboardSection, refresh: false },
     levels: { el: 'levelsContent', fn: loadLevelsSection, refresh: false },
     daily: { el: 'dailyContent', fn: loadDailyCheckSection, refresh: true },
+    team: { el: 'teamContent', fn: loadTeamSection, refresh: true },
     careers: { el: 'careersContent', fn: loadCareersSection, refresh: true },
     about: { el: 'aboutContent', fn: loadAboutSection, refresh: false },
     me: { el: 'meContent', fn: loadMeSection, refresh: true },
@@ -241,6 +242,11 @@ async function loadHomeSection() {
           <span class="home-action-icon">✓</span>
           <strong>Daily task puzzle</strong>
           <span>Select the colour asked</span>
+        </button>
+        <button type="button" class="home-action" onclick="showSection('team')">
+          <span class="home-action-icon">☺</span>
+          <strong>My team</strong>
+          <span>Invites who invested. Earn 5% daily</span>
         </button>
         <button type="button" class="home-action" onclick="showSection('careers')">
           <span class="home-action-icon">★</span>
@@ -758,6 +764,69 @@ async function loadDailyCheckSection() {
 }
 
 window.loadDailyCheckSection = loadDailyCheckSection;
+
+async function loadTeamSection() {
+  const teamContent = document.getElementById('teamContent');
+  if (!teamContent) return;
+
+  showLoading(teamContent, 'Loading team...');
+
+  try {
+    const data = await authenticatedApiCall(`${window.API_BASE || ''}/api/team`, { method: 'GET' });
+    const count = Number(data.count || 0);
+    const dailyTotal = Number(data.dailyTotal || 0);
+    const members = data.members || [];
+
+    const rows = members.length
+      ? members.map((member, index) => `
+          <tr>
+            <td>${index + 1}</td>
+            <td class="admin-cell-strong">${escapeDailyHtml(member.fullName)}</td>
+            <td>${escapeDailyHtml(member.phone)}</td>
+            <td>${escapeDailyHtml(member.level)}</td>
+            <td>K${Number(member.packageAmount || 0).toFixed(0)}</td>
+            <td>K${Number(member.dailyBonus || 0).toFixed(2)}</td>
+          </tr>
+        `).join('')
+      : `<tr><td colspan="6" class="empty-state">No invested invites yet. Share your link from Profile. When they join and invest, they appear here.</td></tr>`;
+
+    teamContent.innerHTML = `
+      <div class="team-board">
+        <div class="team-stats">
+          <div class="stat-card">
+            <div class="stat-value">${count}</div>
+            <div class="stat-label">Team invested</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">K${dailyTotal.toFixed(2)}</div>
+            <div class="stat-label">Your 5% daily total</div>
+          </div>
+        </div>
+        <p class="team-copy">People who used your invite link and invested. You earn 5% of each person's level every day at 00:00, added to your main balance.</p>
+        <div class="admin-scroll-table">
+          <table class="table admin-deposits-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Phone</th>
+                <th>Level</th>
+                <th>Level amount</th>
+                <th>Your 5% / day</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
+    teamContent.dataset.loaded = 'true';
+  } catch (error) {
+    showError(teamContent, error.message, () => loadTeamSection());
+  }
+}
+
+window.loadTeamSection = loadTeamSection;
 
 async function loadCareersSection() {
   const careersContent = document.getElementById('careersContent');
@@ -2926,7 +2995,7 @@ function handleHashNavigation() {
   const hash = window.location.hash.replace('#', '');
     if (hash && hash.startsWith('section-')) {
       const sectionName = hash.replace('section-', '');
-      if (['home', 'dashboard', 'levels', 'daily', 'careers', 'about', 'me', 'withdraw'].includes(sectionName)) {
+      if (['home', 'dashboard', 'levels', 'daily', 'team', 'careers', 'about', 'me', 'withdraw'].includes(sectionName)) {
         showSection(sectionName);
         return true;
       }

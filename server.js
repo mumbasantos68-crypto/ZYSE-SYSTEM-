@@ -8,6 +8,7 @@ const { authenticateToken, requireAdmin, getUserByEmail, getUserByPhone, getUser
 const { initializePayment, verifyPayment, generateReference } = require('./utils/payments');
 const { getZambiaDate, getPublicPuzzle, isValidPuzzleSelection, quoteAmounts, ensureDailyCheckinsTable, getDailyCheckEligibility } = require('./utils/dailyCheckin');
 const { ensureCareerApplicationsTable, getRole, getCareerBoard } = require('./utils/careers');
+const { ensureTeamPayoutsTable, getTeamBoard, payDailyTeamBonuses } = require('./utils/team');
 const nodemailer = require('nodemailer');
 const { body, validationResult } = require('express-validator');
 const multer = require('multer');
@@ -663,6 +664,21 @@ app.post('/api/daily-check', authenticateToken, async (req, res) => {
     }
     console.error('Daily check claim error:', error);
     res.status(500).json({ error: 'Failed to complete daily check' });
+  }
+});
+
+app.get('/api/team', authenticateToken, async (req, res) => {
+  try {
+    await ensureTeamPayoutsTable();
+    const user = await getRequestUser(req);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found. Log out and log in again.' });
+    }
+    const board = await getTeamBoard(user.id);
+    res.json(board);
+  } catch (error) {
+    console.error('Team load error:', error);
+    res.status(500).json({ error: 'Failed to load team' });
   }
 });
 
@@ -3162,6 +3178,9 @@ cron.schedule('0 0 * * *', async () => {
     }
 
     console.log(`Processed ${investments.length} investments`);
+
+    const teamPay = await payDailyTeamBonuses();
+    console.log(`Team bonuses paid: ${teamPay.paid} on ${teamPay.payoutDate}`);
   } catch (error) {
     console.error('Accrual job error:', error);
   }

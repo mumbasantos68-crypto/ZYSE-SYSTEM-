@@ -235,6 +235,23 @@ function initializeTables(db, resolve, reject) {
         }
       });
 
+      db.run(`CREATE TABLE IF NOT EXISTS team_payouts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        inviter_id INTEGER NOT NULL,
+        invitee_id INTEGER NOT NULL,
+        amount REAL NOT NULL,
+        level TEXT,
+        payout_date TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(inviter_id, invitee_id, payout_date)
+      )`, (teamErr) => {
+        if (teamErr) {
+          console.error('Error creating team_payouts table:', teamErr.message);
+        } else {
+          console.log('Team payouts table ready');
+        }
+      });
+
       // Users table
       // Note: SQLite doesn't support modifying UNIQUE constraints easily
       // For new databases, phone will be UNIQUE and NOT NULL, email will be optional
