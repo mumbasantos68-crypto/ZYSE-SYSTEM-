@@ -9,6 +9,7 @@ const { initializePayment, verifyPayment, generateReference } = require('./utils
 const { getZambiaDate, getPublicPuzzle, isValidPuzzleSelection, quoteAmounts, ensureDailyCheckinsTable, getDailyCheckEligibility } = require('./utils/dailyCheckin');
 const { ensureCareerApplicationsTable, getRole, getCareerBoard } = require('./utils/careers');
 const { ensureTeamPayoutsTable, getTeamBoard, payDailyTeamBonuses } = require('./utils/team');
+const { calculateWalletBalance, creditTerminatedLevelLock, repairTerminatedLevelCredits } = require('./utils/wallet');
 const nodemailer = require('nodemailer');
 const { body, validationResult } = require('express-validator');
 const multer = require('multer');
@@ -934,32 +935,10 @@ app.post('/api/invest-from-balance', authenticateToken, [
       `SELECT type, amount, investment_id, deleted FROM transactions WHERE user_id = ?`,
       [userId]
     );
-    const investments = await dbQuery(
-      `SELECT id, deposit_amount, total_accruals FROM investments WHERE user_id = ? AND status = 'active'`,
-      [userId]
-    );
-    
-    // Calculate balance: deposits + accruals + bonuses - withdrawals - investments from balance
-    // IMPORTANT: Include ALL transactions (including deleted ones) for accurate balance calculation
-    // Deleted transactions are marked as deleted=1 but still count toward balance
-    const totalDeposits = transactions
-      .filter(t => t && t.type === 'deposit' && t.amount > 0)
-      .reduce((sum, t) => sum + t.amount, 0);
-    const totalWithdrawn = transactions
-      .filter(t => t && t.type === 'withdrawal')
-      .reduce((sum, t) => sum + t.amount, 0);
-    
-    // Include ALL accrual and bonus transactions (regardless of investment_id or deleted status)
-    // This ensures all daily income, bonuses, and any other income is included in balance
-    const allAccrualsAndBonuses = transactions
-      .filter(t => t && (t.type === 'accrual' || t.type === 'bonus'))
-      .reduce((sum, t) => sum + t.amount, 0);
-    
-    const investmentsFromBalance = transactions
-      .filter(t => t && t.type === 'investment')
-      .reduce((sum, t) => sum + Math.abs(t.amount), 0); // Sum absolute values since they're negative
-    
-    const availableBalance = totalDeposits + allAccrualsAndBonuses - totalWithdrawn - investmentsFromBalance;
+    let availableBalance = calculateWalletBalance(transactions).balance;
+    if (existingActiveInvestment) {
+      availableBalance += Number(existingActiveInvestment.deposit_amount) || 0;
+    }
 
     // Check if user has sufficient balance
     if (availableBalance < amount) {
@@ -976,14 +955,18 @@ app.post('/api/invest-from-balance', authenticateToken, [
     let previousLevel = null;
     if (existingActiveInvestment) {
       previousLevel = existingActiveInvestment.level;
-      
-      // Terminate the existing investment
+
       await dbRun(
         `UPDATE investments SET status = 'terminated', maturity_date = date('now') WHERE id = ?`,
         [existingActiveInvestment.id]
       );
-      
-      console.log(`Terminated previous investment: User ${userId}, Previous Level ${previousLevel}, New Level ${packageData.level}`);
+      await creditTerminatedLevelLock({
+        id: existingActiveInvestment.id,
+        user_id: userId,
+        deposit_amount: existingActiveInvestment.deposit_amount
+      });
+
+      console.log(`Terminated previous investment: User ${userId}, Previous Level ${previousLevel}, New Level ${packageData.level}. Principal returned to wallet.`);
     }
 
     // Start transaction - deduct amount and create investment
@@ -1838,67 +1821,13 @@ app.post('/api/withdraw', authenticateToken, [
       return res.status(400).json({ error: 'Minimum withdrawal amount is Zmw50' });
     }
 
-    // If investmentId provided, validate investment
-    if (investmentId) {
-      const investment = await dbGet(
-        'SELECT * FROM investments WHERE id = ? AND user_id = ?',
-        [investmentId, userId]
-      );
-
-      if (!investment) {
-        return res.status(404).json({ error: 'Investment not found' });
-      }
-
-      // Maturity date check removed - investments can be withdrawn anytime
-
-      // Check if already withdrawn
-      if (investment.status === 'withdrawn') {
-        return res.status(400).json({ error: 'Investment already withdrawn' });
-      }
-
-      // Calculate withdrawal amount (principal + accruals)
-      const totalValue = investment.deposit_amount + investment.total_accruals;
-      
-      // Check if withdrawal amount exceeds available
-      if (withdrawalAmount > totalValue) {
-        return res.status(400).json({ error: `Withdrawal amount (K${withdrawalAmount}) exceeds available balance (K${totalValue.toFixed(2)})` });
-      }
-    } else {
-      // Standalone withdrawal - check total balance - include ALL transactions (including deleted ones)
-      const transactions = await dbQuery(
-        `SELECT type, amount, investment_id, deleted FROM transactions WHERE user_id = ?`,
-        [userId]
-      );
-      const investments = await dbQuery(
-        `SELECT id, deposit_amount, total_accruals FROM investments WHERE user_id = ? AND status = 'active'`,
-        [userId]
-      );
-      
-      // Calculate balance: deposits + accruals + bonuses - withdrawals - investments from balance
-      // IMPORTANT: Include ALL transactions (including deleted ones) for accurate balance calculation
-      // Deleted transactions are marked as deleted=1 but still count toward balance
-      const totalDeposits = transactions
-        .filter(t => t && t.type === 'deposit' && t.amount > 0)
-        .reduce((sum, t) => sum + t.amount, 0);
-      const totalWithdrawn = transactions
-        .filter(t => t && t.type === 'withdrawal')
-        .reduce((sum, t) => sum + t.amount, 0);
-      
-      // Include ALL accrual and bonus transactions (regardless of investment_id or deleted status)
-      // This ensures all daily income, bonuses, and any other income is included in balance
-      const allAccrualsAndBonuses = transactions
-        .filter(t => t && (t.type === 'accrual' || t.type === 'bonus'))
-        .reduce((sum, t) => sum + t.amount, 0);
-      
-      const investmentsFromBalance = transactions
-        .filter(t => t && t.type === 'investment')
-        .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-      
-      const availableBalance = totalDeposits + allAccrualsAndBonuses - totalWithdrawn - investmentsFromBalance;
-      
-      if (withdrawalAmount > availableBalance) {
-        return res.status(400).json({ error: `Withdrawal amount (K${withdrawalAmount}) exceeds available balance (K${availableBalance.toFixed(2)})` });
-      }
+    const transactions = await dbQuery(
+      `SELECT type, amount, investment_id, deleted FROM transactions WHERE user_id = ?`,
+      [userId]
+    );
+    const availableBalance = calculateWalletBalance(transactions).balance;
+    if (withdrawalAmount > availableBalance) {
+      return res.status(400).json({ error: `Withdrawal amount (K${withdrawalAmount}) exceeds available balance (K${Math.max(0, availableBalance).toFixed(2)})` });
     }
 
     // Calculate 12% withdrawal charge
@@ -3191,7 +3120,15 @@ cron.schedule('0 0 * * *', async () => {
 // ==================== SERVER START ====================
 
 // Start server only after database is initialized
-initDB().then(() => {
+initDB().then(async () => {
+  try {
+    const credited = await repairTerminatedLevelCredits();
+    if (credited) {
+      console.log(`Returned locked money from ${credited} switched levels to wallets`);
+    }
+  } catch (repairErr) {
+    console.error('Terminated-level credit repair failed:', repairErr.message);
+  }
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });

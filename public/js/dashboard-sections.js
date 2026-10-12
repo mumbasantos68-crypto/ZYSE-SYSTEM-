@@ -1,10 +1,28 @@
 // Dashboard sections navigation and content management
 
-const ZYSE_WHATSAPP_GROUP = 'https://chat.whatsapp.com/LoVKTQEmJmKCH87VxZvURy';
+const ZYSE_WHATSAPP_GROUP = 'https://chat.whatsapp.com/IkcVbYJxLud1uSxPyO0KiT';
 
 function formatMemberLevel(level) {
   if (!level || level === 'L0' || level === '0') return 'No level (L0)';
   return level;
+}
+
+function calculateWalletBalance(transactions) {
+  const list = Array.isArray(transactions) ? transactions : [];
+  let deposits = 0;
+  let withdrawn = 0;
+  let income = 0;
+  let investmentNet = 0;
+  for (const t of list) {
+    if (!t) continue;
+    const amount = Number(t.amount) || 0;
+    if (t.type === 'deposit' && amount > 0) deposits += amount;
+    else if (t.type === 'withdrawal') withdrawn += amount;
+    else if (t.type === 'accrual' || t.type === 'bonus') income += amount;
+    else if (t.type === 'investment') investmentNet += amount;
+  }
+  const balance = deposits + income - withdrawn + investmentNet;
+  return Math.max(0, balance);
 }
 
 // Use API_BASE from window (set by auth.js) - don't redeclare, just reference
@@ -218,7 +236,7 @@ async function loadHomeSection() {
       <div class="home-whatsapp">
         <a class="btn-whatsapp" href="${ZYSE_WHATSAPP_GROUP}" target="_blank" rel="noopener noreferrer">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12.04 2C6.58 2 2.15 6.37 2.15 11.75c0 1.72.46 3.4 1.33 4.88L2 22l5.54-1.44a10.1 10.1 0 0 0 4.5 1.07h.01c5.46 0 9.89-4.37 9.89-9.75S17.5 2 12.04 2zm5.76 13.83c-.24.68-1.4 1.25-1.94 1.33-.5.07-1.14.1-1.84-.12-.42-.13-.97-.32-1.67-.62-2.94-1.27-4.85-4.22-5-4.41-.14-.2-1.18-1.56-1.18-2.98 0-1.41.74-2.11 1-2.4.26-.28.57-.35.76-.35h.55c.18 0 .42-.07.65.5.24.58.82 2 .89 2.15.07.14.12.31.02.5-.1.2-.15.31-.3.48-.14.16-.3.36-.43.48-.14.14-.29.29-.12.56.16.28.73 1.2 1.56 1.94 1.08.96 1.98 1.26 2.26 1.4.28.14.44.12.6-.07.16-.2.7-.81.88-1.09.19-.28.37-.23.62-.14.26.1 1.63.77 1.91.91.28.14.47.21.54.32.07.12.07.68-.17 1.36z"/></svg>
-          Join WhatsApp group
+          Join group
         </a>
       </div>
 
@@ -1382,8 +1400,7 @@ async function loadMeSection() {
     
     const investmentsFromBalance = (transactions || [])
       .filter(t => t && t.type === 'investment')
-      // Note: NOT filtering by deleted - deleted investments still count toward balance
-      .reduce((sum, t) => sum + Math.abs(Number(t.amount) || 0), 0);
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
     
     // For display purposes, also calculate from investments (for backward compatibility)
     const totalAccruals = (investments || []).reduce((sum, inv) => sum + (Number(inv?.total_accruals) || 0), 0);
@@ -1412,7 +1429,7 @@ async function loadMeSection() {
     
     // Balance = deposits + ALL accruals and bonuses - withdrawals - investments from balance
     // Use allAccrualsAndBonuses to ensure EVERY income transaction is included
-    const currentBalance = (totalDeposits || 0) + (allAccrualsAndBonuses || 0) - (totalWithdrawn || 0) - (investmentsFromBalance || 0);
+    const currentBalance = calculateWalletBalance(transactions);
 
     // Get user profile - use authenticatedApiCall for consistent error handling
     let profileData = { full_name: '', phone: '', level: 'L0', withdrawal_wallet: '', withdrawal_phone: '', profile_picture: '', has_withdrawal_password: false };
@@ -1839,12 +1856,7 @@ async function loadWithdrawSection() {
       .filter(t => t && (t.type === 'accrual' || t.type === 'bonus'))
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
     
-    const investmentsFromBalance = (transactions || [])
-      .filter(t => t && t.type === 'investment')
-      .reduce((sum, t) => sum + Math.abs(Number(t.amount) || 0), 0);
-    
-    // Balance = deposits + ALL accruals and bonuses - withdrawals - investments from balance
-    const currentBalance = (totalDeposits || 0) + (allAccrualsAndBonuses || 0) - (totalWithdrawn || 0) - (investmentsFromBalance || 0);
+    const currentBalance = calculateWalletBalance(transactions);
 
     // Display wallet and phone
     const walletDisplay = profileData.withdrawal_wallet ? profileData.withdrawal_wallet.toUpperCase() : 'Not set';
@@ -2121,24 +2133,10 @@ window.processWithdrawalOnPage = async function(maxBalance) {
   .then(dashboardData => {
     const investments = dashboardData.investments || [];
     // Use first active investment if available, otherwise use null (standalone)
-    const investmentId = investments.length > 0 ? investments[0].id : null;
-
-    // Build request body - only include investmentId if it exists
     const requestBody = {
       withdrawal_password: password,
       amount: amount
     };
-    
-    // Only add investmentId if it's not null
-    if (investmentId !== null && investmentId !== undefined) {
-      requestBody.investmentId = investmentId;
-    }
-
-    console.log('Submitting withdrawal request:', { 
-      amount, 
-      hasInvestment: !!investmentId,
-      investmentId: investmentId || 'none (standalone)'
-    });
 
     return authenticatedApiCall(`${window.API_BASE || ''}/api/withdraw`, {
       method: 'POST',
@@ -2381,15 +2379,10 @@ function showWithdrawalForm(profileData, currentBalance) {
     })
     .then(response => response.json())
     .then(dashboardData => {
-      const investments = dashboardData.investments || [];
-      // Use first active investment if available, otherwise use 0 (standalone)
-      const investmentId = investments.length > 0 ? investments[0].id : null;
-
       return fetch(`${window.API_BASE || ''}/api/withdraw`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({
-          investmentId: investmentId,
           withdrawal_password: password,
           amount: amount
         })
@@ -3165,16 +3158,12 @@ async function confirmInvestment(packageId, amount, level) {
       .filter(t => t && (t.type === 'accrual' || t.type === 'bonus'))
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
     
-    const investmentsFromBalance = (transactions || [])
-      .filter(t => t && t.type === 'investment')
-      .reduce((sum, t) => sum + Math.abs(Number(t.amount) || 0), 0);
-    
-    // Balance = deposits + ALL accruals and bonuses - withdrawals - investments from balance
-    const availableBalance = (totalDeposits || 0) + (allAccrualsAndBonuses || 0) - (totalWithdrawn || 0) - (investmentsFromBalance || 0);
-    
-    // Check if balance is sufficient
-    if (availableBalance < amount) {
-      showAlert(`Insufficient balance. Your current balance is K${availableBalance.toFixed(2)}. Please deposit to get this level.`);
+    const availableBalance = calculateWalletBalance(transactions);
+    const unlockedFromCurrentLevel = isSwitching ? (Number(currentActiveInvestment.deposit_amount) || 0) : 0;
+    const spendableBalance = availableBalance + unlockedFromCurrentLevel;
+
+    if (spendableBalance < amount) {
+      showAlert(`Insufficient balance. Your current spendable amount is K${spendableBalance.toFixed(2)}. Please deposit to get this level.`);
       return;
     }
 
@@ -3188,7 +3177,7 @@ async function confirmInvestment(packageId, amount, level) {
         ${isSwitching ? `
           <div style="background: #fff3cd; border: 1px solid #ffc107; color: #856404; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
             <strong>⚠️ Level Switch Warning:</strong>
-            <p style="margin: 10px 0 0 0;">You are switching from <strong>${currentActiveLevel}</strong> to <strong>${level}</strong>. Your current investment in ${currentActiveLevel} will be <strong>terminated</strong>.</p>
+            <p style="margin: 10px 0 0 0;">You are switching from <strong>${currentActiveLevel}</strong> to <strong>${level}</strong>. The money in ${currentActiveLevel} returns to your wallet first, then the new level is paid.</p>
           </div>
         ` : ''}
         <div style="margin-bottom: 20px;">
@@ -3199,7 +3188,7 @@ async function confirmInvestment(packageId, amount, level) {
             ${isSwitching ? `
               <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
                 <span style="color: #6c757d;">Current Level:</span>
-                <strong style="color: #dc3545;">${currentActiveLevel} (will be terminated)</strong>
+                <strong style="color: #dc3545;">${currentActiveLevel} (money returns to wallet)</strong>
               </div>
             ` : ''}
             <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
@@ -3212,11 +3201,11 @@ async function confirmInvestment(packageId, amount, level) {
             </div>
             <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
               <span style="color: #6c757d;">Current Balance:</span>
-              <strong>K${availableBalance.toFixed(2)}</strong>
+              <strong>K${spendableBalance.toFixed(2)}</strong>
             </div>
             <div style="display: flex; justify-content: space-between; padding-top: 10px; border-top: 2px solid #dee2e6;">
               <span style="color: #6c757d;">Balance After Investment:</span>
-              <strong style="color: ${availableBalance - amount >= 0 ? '#28a745' : '#dc3545'}">K${(availableBalance - amount).toFixed(2)}</strong>
+              <strong style="color: ${spendableBalance - amount >= 0 ? '#28a745' : '#dc3545'}">K${(spendableBalance - amount).toFixed(2)}</strong>
             </div>
           </div>
         </div>
