@@ -384,6 +384,14 @@ function calculateWalletBalance(transactions) {
   return Math.max(0, balance);
 }
 
+function dashboardWallet(data, transactions) {
+  if (data && data.wallet && typeof data.wallet.displayBalance === 'number') {
+    return data.wallet;
+  }
+  const displayBalance = calculateWalletBalance(transactions || []);
+  return { displayBalance, withdrawn: 0, accruals: 0, bonuses: 0, income: 0 };
+}
+
 // Use API_BASE from window (set by auth.js) - don't redeclare, just reference
 // Since auth.js is loaded first, API_BASE should already be available on window
 // We'll reference window.API_BASE directly in functions that need it
@@ -1731,64 +1739,16 @@ async function loadMeSection() {
     });
     const investments = data.investments || [];
     const transactions = data.transactions || [];
+    const wallet = dashboardWallet(data, transactions);
 
-    // Calculate stats
-    // Calculate balance: deposits + accruals + bonuses - withdrawals - investments from balance
-    // CRITICAL: Include ALL transactions (including deleted ones) for accurate balance calculation
-    // Deleted transactions are marked as deleted=1 but MUST still count toward balance
-    // DO NOT filter by deleted status in balance calculations - only filter for display
-    const totalDeposits = (transactions || [])
-      .filter(t => t && t.type === 'deposit' && t.amount > 0)
-      // Note: NOT filtering by deleted - deleted deposits still count toward balance
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-    // Total Invested: Only count ACTIVE investments (exclude deposits which have status 'deposit_completed', 'pending', or 'denied')
     const totalInvested = (investments || [])
       .filter(inv => inv.status === 'active')
       .reduce((sum, inv) => sum + (Number(inv?.deposit_amount) || 0), 0);
-    const totalWithdrawn = (transactions || [])
-      .filter(t => t && t.type === 'withdrawal')
-      // Note: NOT filtering by deleted - deleted withdrawals still count toward balance
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-    
-    // Include ALL accrual and bonus transactions (regardless of investment_id or deleted status)
-    // This ensures all daily income, bonuses, and any other income is included in balance
-    const allAccrualsAndBonuses = (transactions || [])
-      .filter(t => t && (t.type === 'accrual' || t.type === 'bonus'))
-      // Note: NOT filtering by deleted - deleted accruals/bonuses still count toward balance
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-    
-    const investmentsFromBalance = (transactions || [])
-      .filter(t => t && t.type === 'investment')
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-    
-    // For display purposes, also calculate from investments (for backward compatibility)
-    const totalAccruals = (investments || []).reduce((sum, inv) => sum + (Number(inv?.total_accruals) || 0), 0);
-    const standaloneAccruals = (transactions || [])
-      .filter(t =>
-        t &&
-        (t.type === 'accrual' || t.type === 'bonus') &&
-        (
-          t.investment_id === null ||
-          t.investment_id === undefined ||
-          t.investment_id === '' ||
-          t.investment_id === 'null' ||
-          t.investment_id === 0 ||
-          t.investment_id === '0'
-        )
-      )
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-    
-    const totalProfit = (totalAccruals || 0) + (standaloneAccruals || 0);
-    const totalBonuses = (transactions || [])
-      .filter(t => t && t.type === 'bonus')
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-    const dailyIncomeEarned = (transactions || [])
-      .filter(t => t && t.type === 'accrual')
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-    
-    // Balance = deposits + ALL accruals and bonuses - withdrawals - investments from balance
-    // Use allAccrualsAndBonuses to ensure EVERY income transaction is included
-    const currentBalance = calculateWalletBalance(transactions);
+    const totalWithdrawn = Number(wallet.withdrawn != null ? wallet.withdrawn : 0);
+    const totalBonuses = Number(wallet.bonuses != null ? wallet.bonuses : 0);
+    const dailyIncomeEarned = Number(wallet.accruals != null ? wallet.accruals : 0);
+    const totalProfit = Number(wallet.income != null ? wallet.income : dailyIncomeEarned + totalBonuses);
+    const currentBalance = Number(wallet.displayBalance);
 
     // Get user profile - use authenticatedApiCall for consistent error handling
     let profileData = { full_name: '', phone: '', level: 'L0', withdrawal_wallet: '', withdrawal_phone: '', profile_picture: '', has_withdrawal_password: false };
@@ -2142,20 +2102,7 @@ async function loadWithdrawSection() {
     // Calculate current balance: deposits + accruals + bonuses - withdrawals - investments from balance
     const investments = dashboardData.investments || [];
     const transactions = dashboardData.transactions || [];
-    const totalDeposits = (transactions || [])
-      .filter(t => t && t.type === 'deposit' && t.amount > 0)
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-    const totalWithdrawn = (transactions || [])
-      .filter(t => t && t.type === 'withdrawal')
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-    
-    // Include ALL accrual and bonus transactions (regardless of investment_id)
-    // This ensures all daily income, bonuses, and any other income is included in balance
-    const allAccrualsAndBonuses = (transactions || [])
-      .filter(t => t && (t.type === 'accrual' || t.type === 'bonus'))
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-    
-    const currentBalance = calculateWalletBalance(transactions);
+    const currentBalance = Number(dashboardWallet(dashboardData, transactions).displayBalance);
     const canWithdraw = profileData.can_withdraw !== false;
     const withdrawMessage = profileData.withdraw_message || 'Withdrawals are only performed on working days, Monday to Friday, 09:00–17:00.';
 
@@ -3467,24 +3414,8 @@ async function confirmInvestment(packageId, amount, level) {
     // Store for use in modal
     const isSwitching = currentActiveLevel !== null;
     
-    // Calculate current balance
     const transactions = dashboardData.transactions || [];
-    
-    // Calculate balance: deposits + accruals + bonuses - withdrawals - investments from balance
-    const totalDeposits = (transactions || [])
-      .filter(t => t && t.type === 'deposit' && t.amount > 0)
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-    const totalWithdrawn = (transactions || [])
-      .filter(t => t && t.type === 'withdrawal')
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-    
-    // Include ALL accrual and bonus transactions (regardless of investment_id)
-    // This ensures all daily income, bonuses, and any other income is included in balance
-    const allAccrualsAndBonuses = (transactions || [])
-      .filter(t => t && (t.type === 'accrual' || t.type === 'bonus'))
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-    
-    const availableBalance = calculateWalletBalance(transactions);
+    const availableBalance = Number(dashboardWallet(dashboardData, transactions).displayBalance);
     const unlockedFromCurrentLevel = isSwitching ? (Number(currentActiveInvestment.deposit_amount) || 0) : 0;
     const spendableBalance = availableBalance + unlockedFromCurrentLevel;
 

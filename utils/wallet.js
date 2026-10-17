@@ -27,6 +27,19 @@ function calculateWalletBalance(transactions) {
   };
 }
 
+function summarizeWallet(transactions) {
+  const wallet = calculateWalletBalance(transactions);
+  let accruals = 0;
+  let bonuses = 0;
+  for (const t of Array.isArray(transactions) ? transactions : []) {
+    if (!t) continue;
+    const amount = Number(t.amount) || 0;
+    if (t.type === 'accrual') accruals += amount;
+    else if (t.type === 'bonus') bonuses += amount;
+  }
+  return { ...wallet, accruals, bonuses };
+}
+
 async function creditTerminatedLevelLock(investment) {
   if (!investment || !investment.id || !investment.user_id) return false;
   const amount = Number(investment.deposit_amount) || 0;
@@ -69,6 +82,7 @@ async function repairTerminatedLevelCredits() {
 
 module.exports = {
   calculateWalletBalance,
+  summarizeWallet,
   creditTerminatedLevelLock,
   repairTerminatedLevelCredits
 };

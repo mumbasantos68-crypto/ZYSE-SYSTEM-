@@ -9,7 +9,7 @@ const { initializePayment, verifyPayment, generateReference } = require('./utils
 const { getZambiaDate, getPublicPuzzle, isValidPuzzleSelection, quoteAmounts, ensureDailyCheckinsTable, getDailyCheckEligibility, getWithdrawalWindow, parseSqliteUtc } = require('./utils/dailyCheckin');
 const { ensureCareerApplicationsTable, getRole, getCareerBoard } = require('./utils/careers');
 const { ensureTeamPayoutsTable, getTeamBoard, payDailyTeamBonuses } = require('./utils/team');
-const { calculateWalletBalance, creditTerminatedLevelLock, repairTerminatedLevelCredits } = require('./utils/wallet');
+const { calculateWalletBalance, summarizeWallet, creditTerminatedLevelLock, repairTerminatedLevelCredits } = require('./utils/wallet');
 const nodemailer = require('nodemailer');
 const { body, validationResult } = require('express-validator');
 const multer = require('multer');
@@ -1765,22 +1765,23 @@ app.get('/api/dashboard', authenticateToken, async (req, res) => {
         console.error('Error fetching investments:', err);
         return []; // Return empty array on error
       }),
-      // Get ALL transactions including deleted ones for balance calculation
-      // Deleted transactions (deleted=1) are included in balance but filtered out for display in frontend
       dbQuery(
-        'SELECT * FROM transactions WHERE user_id = ? ORDER BY date DESC LIMIT 50',
+        'SELECT * FROM transactions WHERE user_id = ? ORDER BY date DESC',
         [userId]
       ).catch(err => {
         console.error('Error fetching transactions:', err);
-        return []; // Return empty array on error
+        return [];
       })
     ]);
 
-    console.log(`Dashboard data: ${investments.length} investments, ${transactions.length} transactions`);
+    const allTransactions = transactions || [];
+    const wallet = summarizeWallet(allTransactions);
+    console.log(`Dashboard data: ${investments.length} investments, ${allTransactions.length} transactions, wallet ${wallet.displayBalance}`);
 
-    res.json({ 
-      investments: investments || [], 
-      transactions: transactions || [] 
+    res.json({
+      investments: investments || [],
+      transactions: allTransactions.slice(0, 80),
+      wallet
     });
   } catch (error) {
     console.error('Dashboard error:', error);
