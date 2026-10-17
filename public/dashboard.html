@@ -2,17 +2,27 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <title>Dashboard - Zambia Youth Self Employment</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/css/style.css?v=35">
+  <link rel="stylesheet" href="/css/style.css?v=37">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <style>
+    html, body {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
     .dashboard-wrapper {
       display: flex;
       min-height: 100vh;
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
     }
     .sidebar {
       width: 250px;
@@ -68,8 +78,15 @@
     .main-content {
       margin-left: 250px;
       flex: 1;
+      min-width: 0;
+      max-width: 100%;
       padding: 20px;
       background: #0b1628;
+      overflow-x: hidden;
+    }
+    .main-content img,
+    .content-section img {
+      max-width: 100%;
     }
     .content-header {
       background: #13233a;
@@ -159,7 +176,11 @@
       }
       .main-content {
         margin-left: 0;
+        width: 100%;
         padding: 64px 12px 24px;
+      }
+      .table {
+        min-width: 0;
       }
       .content-header {
         flex-direction: column;
@@ -342,8 +363,19 @@
   <script src="/js/api-utils.js?v=1"></script>
   <script src="/js/auth.js?v=13"></script>
   <script src="/js/dashboard.js?v=10"></script>
-  <script src="/js/dashboard-sections.js?v=35"></script>
+  <script src="/js/dashboard-sections.js?v=36"></script>
   <script>
+    (function resetMobileZoom() {
+      var meta = document.querySelector('meta[name="viewport"]');
+      if (!meta) return;
+      meta.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover');
+      window.addEventListener('load', function () {
+        setTimeout(function () {
+          meta.setAttribute('content', 'width=device-width, initial-scale=1, viewport-fit=cover');
+        }, 400);
+      });
+    })();
+
     // Mobile menu toggle function
     function toggleMobileMenu() {
       const sidebar = document.getElementById('sidebar');

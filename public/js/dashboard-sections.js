@@ -7,6 +7,347 @@ function formatMemberLevel(level) {
   return level;
 }
 
+function reloadMeSection() {
+  const meContent = document.getElementById('meContent');
+  if (meContent) {
+    meContent.dataset.loaded = 'false';
+    loadMeSection();
+  }
+}
+
+function showProfilePicture(url) {
+  const circle = document.getElementById('profileAvatarPreview');
+  if (!circle || !url) return;
+  circle.innerHTML = `<img src="${encodeURI(url)}" alt="Profile">`;
+}
+
+async function loadImageForCrop(file) {
+  try {
+    if (typeof createImageBitmap === 'function') {
+      try {
+        return await createImageBitmap(file, { imageOrientation: 'from-image' });
+      } catch (e) {
+        return await createImageBitmap(file);
+      }
+    }
+  } catch (e) {}
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Could not read this photo'));
+    };
+    img.src = url;
+  });
+}
+
+function downscaleImageSource(source, maxSide) {
+  const w = source.width;
+  const h = source.height;
+  const longest = Math.max(w, h);
+  const canvas = document.createElement('canvas');
+  if (longest <= maxSide) {
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext('2d').drawImage(source, 0, 0);
+    return canvas;
+  }
+  const ratio = maxSide / longest;
+  canvas.width = Math.round(w * ratio);
+  canvas.height = Math.round(h * ratio);
+  canvas.getContext('2d').drawImage(source, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
+function canvasToBlob(canvas, type, quality) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error('Could not crop this photo'));
+    }, type, quality);
+  });
+}
+
+window.uploadProfilePicture = function() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.style.display = 'none';
+  document.body.appendChild(input);
+  input.addEventListener('change', async function() {
+    const file = input.files && input.files[0];
+    input.remove();
+    if (!file) return;
+    if (!String(file.type || '').startsWith('image/') && !/\.(jpe?g|png|gif|webp)$/i.test(file.name || '')) {
+      showAlert('Please choose a photo (JPG or PNG).');
+      return;
+    }
+    if (file.size > 25 * 1024 * 1024) {
+      showAlert('That photo is too large. Choose one under 25MB.');
+      return;
+    }
+    try {
+      const source = downscaleImageSource(await loadImageForCrop(file), 2048);
+      openProfileCropper(source);
+    } catch (err) {
+      console.error(err);
+      showAlert('Could not open this photo. Try another image.');
+    }
+  });
+  input.click();
+};
+
+window.deleteProfilePicture = async function() {
+  const confirmed = await showConfirm('Remove your profile picture?', 'Remove photo');
+  if (!confirmed) return;
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${window.API_BASE || ''}/api/profile/picture`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.error) {
+      throw new Error(data.error || 'Failed to remove profile picture');
+    }
+    const circle = document.getElementById('profileAvatarPreview');
+    if (circle) {
+      circle.innerHTML = `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 3rem;">👤</div>`;
+    }
+    reloadMeSection();
+  } catch (error) {
+    console.error(error);
+    showAlert(error.message || 'Failed to remove profile picture');
+  }
+};
+
+function openProfileCropper(source) {
+  document.getElementById('profileCropper')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'profile-cropper';
+  overlay.id = 'profileCropper';
+  overlay.innerHTML = `
+    <div class="profile-cropper-stage" id="profileCropStage">
+      <img id="profileCropImage" alt="Crop">
+      <div class="profile-cropper-mask"><div class="profile-cropper-circle"></div></div>
+    </div>
+    <div class="profile-cropper-bar">
+      <button type="button" class="profile-cropper-cancel">Cancel</button>
+      <span>Move and pinch to crop</span>
+      <button type="button" class="profile-cropper-done">Done</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  document.body.style.overflow = 'hidden';
+  overlay.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+
+  const stage = overlay.querySelector('#profileCropStage');
+  const imgEl = overlay.querySelector('#profileCropImage');
+  const doneBtn = overlay.querySelector('.profile-cropper-done');
+  const imgW = source.width;
+  const imgH = source.height;
+  let previewUrl = '';
+  source.toBlob((blob) => {
+    if (!blob) return;
+    previewUrl = URL.createObjectURL(blob);
+    imgEl.src = previewUrl;
+  }, 'image/jpeg', 0.92);
+
+  let scale = 1;
+  let minScale = 1;
+  let x = 0;
+  let y = 0;
+  const pointers = new Map();
+  let pinchStartDist = 0;
+  let pinchStartScale = 1;
+  let panStart = null;
+
+  function cropSize() {
+    return Math.min(stage.clientWidth, stage.clientHeight) * 0.72;
+  }
+
+  function layoutCrop() {
+    const size = cropSize();
+    overlay.style.setProperty('--crop-size', `${size}px`);
+    minScale = Math.max(size / imgW, size / imgH);
+    scale = Math.max(scale, minScale);
+    clampPos();
+    applyPos();
+  }
+
+  function clampPos() {
+    const size = cropSize();
+    const dispW = imgW * scale;
+    const dispH = imgH * scale;
+    const left = (stage.clientWidth - size) / 2;
+    const top = (stage.clientHeight - size) / 2;
+    const minX = left + size - dispW;
+    const minY = top + size - dispH;
+    x = Math.min(left, Math.max(minX, x));
+    y = Math.min(top, Math.max(minY, y));
+  }
+
+  function applyPos() {
+    imgEl.style.width = `${imgW * scale}px`;
+    imgEl.style.height = `${imgH * scale}px`;
+    imgEl.style.left = `${x}px`;
+    imgEl.style.top = `${y}px`;
+  }
+
+  function resetCenter() {
+    const size = cropSize();
+    minScale = Math.max(size / imgW, size / imgH);
+    scale = minScale;
+    x = (stage.clientWidth - imgW * scale) / 2;
+    y = (stage.clientHeight - imgH * scale) / 2;
+    applyPos();
+  }
+
+  function closeCropper() {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    overlay.remove();
+    document.body.style.overflow = '';
+    window.removeEventListener('resize', layoutCrop);
+  }
+
+  overlay.querySelector('.profile-cropper-cancel').onclick = closeCropper;
+
+  function pointerDistance() {
+    const pts = [...pointers.values()];
+    const dx = pts[0].x - pts[1].x;
+    const dy = pts[0].y - pts[1].y;
+    return Math.hypot(dx, dy);
+  }
+
+  stage.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    stage.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size === 2) {
+      pinchStartDist = pointerDistance();
+      pinchStartScale = scale;
+      panStart = null;
+    } else {
+      const rect = stage.getBoundingClientRect();
+      panStart = { x: e.clientX - rect.left - x, y: e.clientY - rect.top - y };
+    }
+  });
+
+  stage.addEventListener('pointermove', (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size === 2 && pinchStartDist) {
+      const dist = pointerDistance();
+      const next = pinchStartScale * (dist / pinchStartDist);
+      const rect = stage.getBoundingClientRect();
+      const pts = [...pointers.values()];
+      const mid = { x: (pts[0].x + pts[1].x) / 2 - rect.left, y: (pts[0].y + pts[1].y) / 2 - rect.top };
+      const relX = (mid.x - x) / scale;
+      const relY = (mid.y - y) / scale;
+      scale = Math.min(minScale * 6, Math.max(minScale, next));
+      x = mid.x - relX * scale;
+      y = mid.y - relY * scale;
+      clampPos();
+      applyPos();
+    } else if (pointers.size === 1 && panStart) {
+      const rect = stage.getBoundingClientRect();
+      x = e.clientX - rect.left - panStart.x;
+      y = e.clientY - rect.top - panStart.y;
+      clampPos();
+      applyPos();
+    }
+  });
+
+  function endPointer(e) {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinchStartDist = 0;
+    if (pointers.size === 1) {
+      const p = [...pointers.values()][0];
+      const rect = stage.getBoundingClientRect();
+      panStart = { x: p.x - rect.left - x, y: p.y - rect.top - y };
+    } else {
+      panStart = null;
+    }
+  }
+  stage.addEventListener('pointerup', endPointer);
+  stage.addEventListener('pointercancel', endPointer);
+
+  stage.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const rect = stage.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+    const next = scale * (e.deltaY < 0 ? 1.08 : 0.92);
+    const relX = (px - x) / scale;
+    const relY = (py - y) / scale;
+    scale = Math.min(minScale * 6, Math.max(minScale, next));
+    x = px - relX * scale;
+    y = py - relY * scale;
+    clampPos();
+    applyPos();
+  }, { passive: false });
+
+  doneBtn.onclick = async function() {
+    doneBtn.disabled = true;
+    doneBtn.textContent = 'Saving...';
+    try {
+      const size = cropSize();
+      const left = (stage.clientWidth - size) / 2;
+      const top = (stage.clientHeight - size) / 2;
+      const sx = (left - x) / scale;
+      const sy = (top - y) / scale;
+      const sw = size / scale;
+      const out = document.createElement('canvas');
+      out.width = 512;
+      out.height = 512;
+      const ctx = out.getContext('2d');
+      ctx.drawImage(source, sx, sy, sw, sw, 0, 0, 512, 512);
+      const blob = await canvasToBlob(out, 'image/jpeg', 0.86);
+      if (blob.size > 2 * 1024 * 1024) {
+        throw new Error('Cropped photo is still too large. Zoom in a bit and try again.');
+      }
+      const localUrl = URL.createObjectURL(blob);
+      showProfilePicture(localUrl);
+      closeCropper();
+      await uploadCroppedProfile(blob, localUrl);
+    } catch (err) {
+      console.error(err);
+      doneBtn.disabled = false;
+      doneBtn.textContent = 'Done';
+      showAlert(err.message || 'Could not save profile picture');
+    }
+  };
+
+  window.addEventListener('resize', layoutCrop);
+  requestAnimationFrame(() => {
+    resetCenter();
+    layoutCrop();
+  });
+}
+
+async function uploadCroppedProfile(blob, localUrl) {
+  const token = localStorage.getItem('token');
+  const formData = new FormData();
+  formData.append('profilePicture', blob, 'profile.jpg');
+  const response = await fetch(`${window.API_BASE || ''}/api/profile/picture`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}` },
+    body: formData
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.error) {
+    throw new Error(data.error || 'Failed to upload profile picture');
+  }
+  if (data.profile_picture) {
+    showProfilePicture(`${data.profile_picture}?t=${Date.now()}`);
+  }
+  if (localUrl) URL.revokeObjectURL(localUrl);
+  reloadMeSection();
+}
+
 function calculateWalletBalance(transactions) {
   const list = Array.isArray(transactions) ? transactions : [];
   let deposits = 0;
@@ -1448,18 +1789,21 @@ async function loadMeSection() {
     // Render profile
     const profilePictureUrl = profileData.profile_picture || '';
     const profilePictureDisplay = profilePictureUrl 
-      ? `<img src="${encodeURI(profilePictureUrl)}?t=${Date.now()}" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" onerror="this.parentNode.innerHTML='<div style=\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:3rem;\\'>👤</div>'">`
+      ? `<img src="${encodeURI(profilePictureUrl)}?t=${Date.now()}" alt="Profile" onerror="this.parentNode.innerHTML='<div style=\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:3rem;\\'>👤</div>'">`
       : `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 3rem;">👤</div>`;
 
     meContent.innerHTML = `
       <div style="background: linear-gradient(135deg, #007BFF 0%, #0056b3 100%); color: white; padding: 40px; border-radius: 10px; text-align: center; margin-bottom: 30px;">
-        <div style="position: relative; width: 120px; height: 120px; margin: 0 auto 20px;">
-          <div style="width: 120px; height: 120px; border-radius: 50%; background: rgba(255,255,255,0.2); border: 4px solid white; overflow: hidden; position: relative;">
+        <div class="profile-avatar-block">
+          <div class="profile-avatar-circle" id="profileAvatarPreview">
             ${profilePictureDisplay}
           </div>
-          <button onclick="uploadProfilePicture()" style="position: absolute; bottom: 0; right: 0; width: 36px; height: 36px; border-radius: 50%; background: #28a745; border: 3px solid white; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" title="Update Profile Picture">
-            📷
-          </button>
+          <button type="button" class="profile-avatar-cam" onclick="uploadProfilePicture()" title="Change photo">📷</button>
+          ${profilePictureUrl ? '<button type="button" class="profile-avatar-del" onclick="deleteProfilePicture()" title="Remove photo">✕</button>' : ''}
+        </div>
+        <div class="profile-photo-actions">
+          <button type="button" onclick="uploadProfilePicture()">Change photo</button>
+          ${profilePictureUrl ? '<button type="button" onclick="deleteProfilePicture()">Remove photo</button>' : ''}
         </div>
         <h2 style="color: white; margin-bottom: 10px;">${getDisplayName(profileData, user)}</h2>
         <p style="margin-top: 10px;">
@@ -1717,65 +2061,6 @@ async function loadMeSection() {
           showAlert('Copy not supported. Please select and copy manually.');
         }
       }
-    };
-
-    // Make uploadProfilePicture function available
-    window.uploadProfilePicture = function() {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/jpeg,image/jpg,image/png,image/gif,image/webp';
-      input.onchange = function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        // Validate file size (2MB)
-        if (file.size > 2 * 1024 * 1024) {
-          showAlert('File size must be less than 2MB');
-          return;
-        }
-
-        // Show loading
-        const btn = event.target;
-        const originalText = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '⏳';
-
-        // Create form data
-        const formData = new FormData();
-        formData.append('profilePicture', file);
-
-        // Upload (don't set Content-Type for FormData)
-        const token = localStorage.getItem('token');
-        fetch(`${window.API_BASE || ''}/api/profile/picture`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          },
-          body: formData
-        })
-        .then(async (response) => {
-          const data = await response.json().catch(() => ({}));
-          if (!response.ok || data.error) {
-            throw new Error(data.error || 'Failed to upload profile picture');
-          }
-          return data;
-        })
-        .then(data => {
-          showAlert('Profile picture updated successfully!');
-          const meContent = document.getElementById('meContent');
-          if (meContent) {
-            meContent.dataset.loaded = 'false';
-            loadMeSection();
-          }
-        })
-        .catch(error => {
-          console.error('Upload error:', error);
-          showAlert('Failed to upload profile picture');
-          btn.disabled = false;
-          btn.innerHTML = originalText;
-        });
-      };
-      input.click();
     };
 
     // Mark as loaded

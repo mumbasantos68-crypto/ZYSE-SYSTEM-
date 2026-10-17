@@ -1514,6 +1514,21 @@ app.post('/api/profile/picture', authenticateToken, handleMulter(upload.single('
   }
 });
 
+app.delete('/api/profile/picture', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const user = await dbGet('SELECT profile_picture FROM users WHERE id = ?', [userId]);
+    await dbRun('UPDATE users SET profile_picture = NULL WHERE id = ?', [userId]);
+    if (user && user.profile_picture) {
+      deleteUpload(user.profile_picture);
+    }
+    res.json({ message: 'Profile picture removed' });
+  } catch (error) {
+    console.error('Profile picture delete error:', error);
+    res.status(500).json({ error: 'Failed to remove profile picture' });
+  }
+});
+
 // Get all certificates
 app.get('/api/certificates', async (req, res) => {
   try {
