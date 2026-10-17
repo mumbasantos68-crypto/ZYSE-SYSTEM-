@@ -93,14 +93,12 @@ function handleMulter(uploadFn) {
 // Configure multer for profile picture uploads
 const profileStorage = multer.diskStorage({
   destination: function (req, file, cb) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
     cb(null, uploadsDir);
   },
   filename: function (req, file, cb) {
-    // Generate unique filename: userId-timestamp.extension
     const userId = req.user?.userId || 'unknown';
-    const timestamp = Date.now();
-    const ext = path.extname(file.originalname);
-    cb(null, `profile-${userId}-${timestamp}${ext}`);
+    cb(null, `profile-${userId}-${Date.now()}${imageExtension(file)}`);
   }
 });
 
@@ -121,21 +119,17 @@ const certificateStorage = multer.diskStorage({
 const upload = multer({
   storage: profileStorage,
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
+    fileSize: 2 * 1024 * 1024 // 2MB limit
   },
   fileFilter: function (req, file, cb) {
-    // Accept only image files
     const allowedTypes = /jpeg|jpg|png|gif|webp/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-    
-    if (mimetype && extname) {
+    const extname = allowedTypes.test(path.extname(file.originalname || '').toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype || '') || String(file.mimetype || '').startsWith('image/');
+    if (mimetype || extname) {
       return cb(null, true);
-    } else {
-      // Store error in request for later handling
-      req.fileValidationError = `File type not allowed. Only image files (JPG, PNG, GIF, WEBP) are allowed. Got: ${file.mimetype}`;
-      cb(new Error(req.fileValidationError));
     }
+    req.fileValidationError = `File type not allowed. Only image files (JPG, PNG, GIF, WEBP) are allowed. Got: ${file.mimetype}`;
+    cb(new Error(req.fileValidationError));
   }
 });
 
@@ -194,14 +188,16 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(uploadsRoot));
-app.get('/uploads/announcements/:file', (req, res, next) => {
-  const name = path.basename(req.params.file);
-  const disk = path.join(announcementsDir, name);
-  const fallback = path.join(__dirname, 'public', 'uploads', 'announcements', name);
+function sendUploadFile(folder, fileName, res, next) {
+  const name = path.basename(fileName);
+  const disk = path.join(uploadsRoot, folder, name);
+  const fallback = path.join(__dirname, 'public', 'uploads', folder, name);
   if (fs.existsSync(disk)) return res.sendFile(path.resolve(disk));
   if (fs.existsSync(fallback)) return res.sendFile(path.resolve(fallback));
   next();
-});
+}
+app.get('/uploads/announcements/:file', (req, res, next) => sendUploadFile('announcements', req.params.file, res, next));
+app.get('/uploads/profiles/:file', (req, res, next) => sendUploadFile('profiles', req.params.file, res, next));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Email transporter (using Gmail SMTP)
@@ -1478,9 +1474,8 @@ app.post('/api/profile/change-password', authenticateToken, [
 });
 
 // Upload profile picture
-app.post('/api/profile/picture', authenticateToken, upload.single('profilePicture'), async (req, res) => {
+app.post('/api/profile/picture', authenticateToken, handleMulter(upload.single('profilePicture')), async (req, res) => {
   try {
-    // Handle multer errors
     if (req.fileValidationError) {
       return res.status(400).json({ error: req.fileValidationError });
     }
@@ -1491,19 +1486,13 @@ app.post('/api/profile/picture', authenticateToken, upload.single('profilePictur
 
     const userId = req.user.userId;
     const filePath = `/uploads/profiles/${req.file.filename}`;
+    console.log(`Profile picture saved: ${req.file.path} -> ${filePath}`);
 
-    // Get old profile picture to delete it
     const user = await dbGet('SELECT profile_picture FROM users WHERE id = ?', [userId]);
-    
-    // Update database with new profile picture path
     await dbRun('UPDATE users SET profile_picture = ? WHERE id = ?', [filePath, userId]);
 
-    // Delete old profile picture if it exists
-    if (user && user.profile_picture) {
-      const oldFilePath = path.join(__dirname, 'public', user.profile_picture);
-      if (fs.existsSync(oldFilePath)) {
-        fs.unlinkSync(oldFilePath);
-      }
+    if (user && user.profile_picture && user.profile_picture !== filePath) {
+      deleteUpload(user.profile_picture);
     }
 
     res.json({ 
@@ -1521,7 +1510,7 @@ app.post('/api/profile/picture', authenticateToken, upload.single('profilePictur
         console.error('Error deleting file:', unlinkErr);
       }
     }
-    res.status(500).json({ error: error.message || 'Failed to upload profile picture. Please check file type and size (max 5MB).' });
+    res.status(500).json({ error: error.message || 'Failed to upload profile picture. Please check file type and size (max 2MB).' });
   }
 });
 

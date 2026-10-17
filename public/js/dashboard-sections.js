@@ -1448,7 +1448,7 @@ async function loadMeSection() {
     // Render profile
     const profilePictureUrl = profileData.profile_picture || '';
     const profilePictureDisplay = profilePictureUrl 
-      ? `<img src="${profilePictureUrl}" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`
+      ? `<img src="${encodeURI(profilePictureUrl)}?t=${Date.now()}" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" onerror="this.parentNode.innerHTML='<div style=\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:3rem;\\'>👤</div>'">`
       : `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 3rem;">👤</div>`;
 
     meContent.innerHTML = `
@@ -1728,9 +1728,9 @@ async function loadMeSection() {
         const file = e.target.files[0];
         if (!file) return;
 
-        // Validate file size (5MB)
-        if (file.size > 5 * 1024 * 1024) {
-          showAlert('File size must be less than 5MB');
+        // Validate file size (2MB)
+        if (file.size > 2 * 1024 * 1024) {
+          showAlert('File size must be less than 2MB');
           return;
         }
 
@@ -1750,24 +1750,22 @@ async function loadMeSection() {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`
-            // Don't set Content-Type - browser will set it with boundary for FormData
           },
           body: formData
         })
-        .then(response => response.json())
+        .then(async (response) => {
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok || data.error) {
+            throw new Error(data.error || 'Failed to upload profile picture');
+          }
+          return data;
+        })
         .then(data => {
-          if (data.error) {
-            showAlert('Error: ' + data.error);
-            btn.disabled = false;
-            btn.innerHTML = originalText;
-          } else {
-            showAlert('Profile picture updated successfully!');
-            // Reload me section
-            const meContent = document.getElementById('meContent');
-            if (meContent) {
-              meContent.dataset.loaded = 'false';
-              loadMeSection();
-            }
+          showAlert('Profile picture updated successfully!');
+          const meContent = document.getElementById('meContent');
+          if (meContent) {
+            meContent.dataset.loaded = 'false';
+            loadMeSection();
           }
         })
         .catch(error => {
