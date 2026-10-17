@@ -6,7 +6,7 @@ const cron = require('node-cron');
 const { initDB, dbQuery, dbRun, dbGet, dbTransaction } = require('./utils/db');
 const { authenticateToken, requireAdmin, getUserByEmail, getUserByPhone, getUserById, getRequestUser, hashPassword, comparePassword, generateToken, normalizeZambianPhone, isConfiguredAdminUser } = require('./utils/auth');
 const { initializePayment, verifyPayment, generateReference } = require('./utils/payments');
-const { getZambiaDate, getPublicPuzzle, isValidPuzzleSelection, quoteAmounts, ensureDailyCheckinsTable, getDailyCheckEligibility } = require('./utils/dailyCheckin');
+const { getZambiaDate, getPublicPuzzle, isValidPuzzleSelection, quoteAmounts, ensureDailyCheckinsTable, getDailyCheckEligibility, getWithdrawalWindow, parseSqliteUtc } = require('./utils/dailyCheckin');
 const { ensureCareerApplicationsTable, getRole, getCareerBoard } = require('./utils/careers');
 const { ensureTeamPayoutsTable, getTeamBoard, payDailyTeamBonuses } = require('./utils/team');
 const { calculateWalletBalance, creditTerminatedLevelLock, repairTerminatedLevelCredits } = require('./utils/wallet');
@@ -88,6 +88,29 @@ function handleMulter(uploadFn) {
       next();
     });
   };
+}
+
+async function userHasWithdrawnOnDate(userId, zambiaDate, lastWithdrawalDate) {
+  if (String(lastWithdrawalDate || '').slice(0, 10) === zambiaDate) return true;
+  const rows = await dbQuery(
+    'SELECT requested_at FROM withdrawal_requests WHERE user_id = ? ORDER BY id DESC LIMIT 40',
+    [userId]
+  );
+  return (rows || []).some((row) => {
+    const when = parseSqliteUtc(row.requested_at);
+    return when && getZambiaDate(when) === zambiaDate;
+  });
+}
+
+async function getUserWithdrawalGate(userId, lastWithdrawalDate) {
+  const window = getWithdrawalWindow();
+  if (!window.open) {
+    return { allowed: false, message: window.closedMessage, date: window.date };
+  }
+  if (await userHasWithdrawnOnDate(userId, window.date, lastWithdrawalDate)) {
+    return { allowed: false, message: window.onceMessage, date: window.date };
+  }
+  return { allowed: true, message: null, date: window.date };
 }
 
 // Configure multer for profile picture uploads
@@ -1324,7 +1347,7 @@ app.get('/api/profile', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const user = await dbGet(
-      'SELECT id, email, full_name, phone, level, withdrawal_wallet, withdrawal_phone, profile_picture, created_at, is_admin FROM users WHERE id = ?',
+      'SELECT id, email, full_name, phone, level, withdrawal_wallet, withdrawal_phone, profile_picture, created_at, is_admin, last_withdrawal_date FROM users WHERE id = ?',
       [userId]
     );
 
@@ -1353,6 +1376,7 @@ app.get('/api/profile', authenticateToken, async (req, res) => {
       }
     }
     
+    const withdrawGate = await getUserWithdrawalGate(userId, user.last_withdrawal_date);
     res.json({
       id: user.id, // Include user ID for referral links
       full_name: fullName,
@@ -1363,7 +1387,10 @@ app.get('/api/profile', authenticateToken, async (req, res) => {
       withdrawal_phone: user.withdrawal_phone || '',
       profile_picture: user.profile_picture || '',
       has_withdrawal_password: !!userWithPassword?.withdrawal_password,
-      isAdmin: Number(user.is_admin) === 1 || isConfiguredAdminUser(user)
+      isAdmin: Number(user.is_admin) === 1 || isConfiguredAdminUser(user),
+      last_withdrawal_date: user.last_withdrawal_date || '',
+      can_withdraw: withdrawGate.allowed,
+      withdraw_message: withdrawGate.message
     });
   } catch (error) {
     console.error('Profile error:', error);
@@ -1811,10 +1838,9 @@ app.post('/api/withdraw', authenticateToken, [
       return res.status(400).json({ error: 'Withdrawal wallet not set. Please set it in your profile settings.' });
     }
 
-    // Check if user has withdrawn today
-    const today = new Date().toISOString().split('T')[0];
-    if (user.last_withdrawal_date === today) {
-      return res.status(400).json({ error: 'You can only withdraw once per day. Please try again tomorrow.' });
+    const withdrawGate = await getUserWithdrawalGate(userId, user.last_withdrawal_date);
+    if (!withdrawGate.allowed) {
+      return res.status(400).json({ error: withdrawGate.message });
     }
 
     // Get withdrawal amount
@@ -1875,6 +1901,11 @@ app.post('/api/withdraw', authenticateToken, [
     );
     
     console.log('Withdrawal request created successfully:', requestResult.lastID);
+
+    await dbRun(
+      'UPDATE users SET last_withdrawal_date = ? WHERE id = ?',
+      [withdrawGate.date, userId]
+    );
 
     // Send response first to ensure user gets confirmation
     res.json({ 
@@ -2206,8 +2237,8 @@ app.put('/api/admin/withdrawal-requests/:id', authenticateToken, requireAdmin, [
     if (action === 'approve') {
       // Update last withdrawal date
       await dbRun(
-        'UPDATE users SET last_withdrawal_date = date("now") WHERE id = ?',
-        [request.user_id]
+        'UPDATE users SET last_withdrawal_date = ? WHERE id = ?',
+        [getZambiaDate(), request.user_id]
       );
 
       // Create withdrawal transaction (allow NULL investment_id for standalone withdrawals)

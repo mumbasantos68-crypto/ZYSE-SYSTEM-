@@ -31,13 +31,59 @@ const PUZZLES = [
   }
 ];
 
-function getZambiaDate() {
+function getZambiaDate(date = new Date()) {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Africa/Lusaka',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
-  }).format(new Date());
+  }).format(date);
+}
+
+function parseSqliteUtc(value) {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  const text = String(value).trim();
+  if (!text) return null;
+  if (/[zZ]|[+-]\d{2}:\d{2}$/.test(text)) return new Date(text);
+  if (text.includes('T')) return new Date(`${text}Z`);
+  return new Date(`${text.replace(' ', 'T')}Z`);
+}
+
+function getZambiaNowParts(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Africa/Lusaka',
+    weekday: 'short',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(date);
+  const get = (type) => (parts.find((part) => part.type === type) || {}).value;
+  return {
+    date: `${get('year')}-${get('month')}-${get('day')}`,
+    weekday: get('weekday'),
+    hour: Number(get('hour')),
+    minute: Number(get('minute'))
+  };
+}
+
+const WITHDRAW_HOURS_MESSAGE = 'Withdrawals are only performed on working days, Monday to Friday, 09:00–17:00.';
+const WITHDRAW_ONCE_MESSAGE = 'You can only withdraw once per day. Please wait until the next day.';
+
+function getWithdrawalWindow(date = new Date()) {
+  const now = getZambiaNowParts(date);
+  const weekend = now.weekday === 'Sat' || now.weekday === 'Sun';
+  const minutes = now.hour * 60 + now.minute;
+  const open = !weekend && minutes >= 9 * 60 && minutes <= 17 * 60;
+  return {
+    open,
+    date: now.date,
+    closedMessage: WITHDRAW_HOURS_MESSAGE,
+    onceMessage: WITHDRAW_ONCE_MESSAGE
+  };
 }
 
 function levelNumber(level) {
@@ -137,6 +183,10 @@ function quoteAmounts(level) {
 
 module.exports = {
   getZambiaDate,
+  parseSqliteUtc,
+  getWithdrawalWindow,
+  WITHDRAW_HOURS_MESSAGE,
+  WITHDRAW_ONCE_MESSAGE,
   getLevelBonus,
   getPublicPuzzle,
   isValidPuzzleSelection,

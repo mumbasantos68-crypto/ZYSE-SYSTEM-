@@ -70,7 +70,24 @@ function canvasToBlob(canvas, type, quality) {
   });
 }
 
+window.toggleProfilePhotoMenu = function(event) {
+  if (event) event.stopPropagation();
+  const menu = document.getElementById('profilePhotoMenu');
+  if (!menu) return;
+  menu.classList.toggle('is-open');
+};
+
+if (!window.profilePhotoMenuBound) {
+  window.profilePhotoMenuBound = true;
+  document.addEventListener('click', function(event) {
+    const menu = document.getElementById('profilePhotoMenu');
+    const edit = event.target.closest && event.target.closest('.profile-avatar-edit');
+    if (menu && !edit) menu.classList.remove('is-open');
+  });
+}
+
 window.uploadProfilePicture = function() {
+  document.getElementById('profilePhotoMenu')?.classList.remove('is-open');
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
@@ -100,6 +117,7 @@ window.uploadProfilePicture = function() {
 };
 
 window.deleteProfilePicture = async function() {
+  document.getElementById('profilePhotoMenu')?.classList.remove('is-open');
   const confirmed = await showConfirm('Remove your profile picture?', 'Remove photo');
   if (!confirmed) return;
   try {
@@ -504,7 +522,7 @@ function showSection(sectionName) {
     careers: { el: 'careersContent', fn: loadCareersSection, refresh: true },
     about: { el: 'aboutContent', fn: loadAboutSection, refresh: false },
     me: { el: 'meContent', fn: loadMeSection, refresh: true },
-    withdraw: { el: 'withdrawContent', fn: loadWithdrawSection, refresh: false }
+    withdraw: { el: 'withdrawContent', fn: loadWithdrawSection, refresh: true }
   };
   const loader = loaders[sectionName];
   if (loader) {
@@ -1798,12 +1816,16 @@ async function loadMeSection() {
           <div class="profile-avatar-circle" id="profileAvatarPreview">
             ${profilePictureDisplay}
           </div>
-          <button type="button" class="profile-avatar-cam" onclick="uploadProfilePicture()" title="Change photo">📷</button>
-          ${profilePictureUrl ? '<button type="button" class="profile-avatar-del" onclick="deleteProfilePicture()" title="Remove photo">✕</button>' : ''}
-        </div>
-        <div class="profile-photo-actions">
-          <button type="button" onclick="uploadProfilePicture()">Change photo</button>
-          ${profilePictureUrl ? '<button type="button" onclick="deleteProfilePicture()">Remove photo</button>' : ''}
+          <div class="profile-avatar-edit">
+            <button type="button" class="profile-avatar-pencil" onclick="toggleProfilePhotoMenu(event)" aria-label="Edit photo">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5z"/></svg>
+            </button>
+            <div class="profile-photo-menu" id="profilePhotoMenu">
+              ${profilePictureUrl ? '<button type="button" class="is-danger" onclick="deleteProfilePicture()">Delete photo</button>' : ''}
+              ${profilePictureUrl ? '<button type="button" onclick="uploadProfilePicture()">Update</button>' : ''}
+              <button type="button" onclick="uploadProfilePicture()">Add new</button>
+            </div>
+          </div>
         </div>
         <h2 style="color: white; margin-bottom: 10px;">${getDisplayName(profileData, user)}</h2>
         <p style="margin-top: 10px;">
@@ -2081,12 +2103,6 @@ async function loadWithdrawSection() {
   const withdrawContent = document.getElementById('withdrawContent');
   if (!withdrawContent) return;
 
-  // Check if already loaded
-  if (withdrawContent.dataset.loaded === 'true') {
-    return;
-  }
-
-  // Show loading state
   showLoading(withdrawContent, 'Loading withdrawal form...');
 
   try {
@@ -2140,6 +2156,8 @@ async function loadWithdrawSection() {
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
     
     const currentBalance = calculateWalletBalance(transactions);
+    const canWithdraw = profileData.can_withdraw !== false;
+    const withdrawMessage = profileData.withdraw_message || 'Withdrawals are only performed on working days, Monday to Friday, 09:00–17:00.';
 
     // Display wallet and phone
     const walletDisplay = profileData.withdrawal_wallet ? profileData.withdrawal_wallet.toUpperCase() : 'Not set';
@@ -2194,7 +2212,8 @@ async function loadWithdrawSection() {
               Withdrawal Information
             </h3>
             <div style="color: #856404; line-height: 1.8; font-size: 0.95rem;">
-              <p style="margin: 8px 0;"><strong>📅 Withdrawal Hours:</strong> Monday to Friday, 10:00hrs to 17:00hrs</p>
+              <p style="margin: 8px 0;"><strong>📅 Withdrawal Hours:</strong> Monday to Friday, 09:00–17:00. Saturday and Sunday are closed.</p>
+              <p style="margin: 8px 0;"><strong>🔁 Limit:</strong> One withdrawal per day. After you submit, wait until the next day.</p>
               <p style="margin: 8px 0;"><strong>💰 Minimum Amount:</strong> Zmw50</p>
               <p style="margin: 8px 0;"><strong>⏱️ Processing Time:</strong> May take up to 48 hours depending on the number of pending withdrawals</p>
               <p style="margin: 8px 0;"><strong>📊 Tax Information:</strong> Zambia Youth Self Employment is a global financial investment company. Your income is subject to personal income tax of 12% to the local government.</p>
@@ -2203,8 +2222,15 @@ async function loadWithdrawSection() {
             </div>
           </div>
 
+          ${!canWithdraw ? `
+          <div style="background: #f8d7da; border-left: 4px solid #dc3545; padding: 18px; border-radius: 8px; margin-bottom: 24px; color: #721c24;">
+            <strong>Withdrawal unavailable</strong>
+            <p style="margin: 8px 0 0;">${withdrawMessage}</p>
+          </div>
+          ` : ''}
+
           <!-- Withdrawal Form -->
-          <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); ${!canWithdraw ? 'opacity: 0.55; pointer-events: none;' : ''}">
             <div class="form-group">
               <label style="display: block; margin-bottom: 10px; font-weight: bold; color: #333;">Withdrawal Amount (Minimum Zmw50):</label>
               <input 
@@ -2260,7 +2286,8 @@ async function loadWithdrawSection() {
             <div style="margin-top: 30px; text-align: center;">
               <button 
                 onclick="processWithdrawalOnPage(${currentBalance.toFixed(2)})" 
-                class="btn btn-success" 
+                class="btn btn-success"
+                ${!canWithdraw ? 'disabled' : ''} 
                 style="
                   background: linear-gradient(135deg, #28a745 0%, #20c997 100%); 
                   color: white; 
@@ -2345,6 +2372,14 @@ window.calculateWithdrawalOnPage = function() {
 
 // Process withdrawal on page
 window.processWithdrawalOnPage = async function(maxBalance) {
+  try {
+    const profileData = await authenticatedApiCall(`${window.API_BASE || ''}/api/profile`, { method: 'GET' });
+    if (profileData.can_withdraw === false) {
+      showAlert(profileData.withdraw_message || 'Withdrawals are only performed on working days, Monday to Friday, 09:00–17:00.');
+      return;
+    }
+  } catch (e) {}
+
   const amountInput = document.getElementById('withdrawAmount');
   const amount = parseFloat(amountInput.value) || 0;
   const password = document.getElementById('withdrawPasswordOnPage').value;
@@ -2632,7 +2667,15 @@ function showWithdrawalForm(profileData, currentBalance) {
   };
 
   // Process withdrawal function
-  window.processWithdrawal = function(maxBalance) {
+  window.processWithdrawal = async function(maxBalance) {
+    try {
+      const profileData = await authenticatedApiCall(`${window.API_BASE || ''}/api/profile`, { method: 'GET' });
+      if (profileData.can_withdraw === false) {
+        showAlert(profileData.withdraw_message || 'Withdrawals are only performed on working days, Monday to Friday, 09:00–17:00.');
+        return;
+      }
+    } catch (e) {}
+
     const amount = parseFloat(document.getElementById('withdrawAmount').value);
     const password = document.getElementById('withdrawPassword').value;
 
