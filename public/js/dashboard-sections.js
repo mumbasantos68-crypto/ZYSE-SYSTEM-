@@ -389,7 +389,7 @@ function dashboardWallet(data, transactions) {
     return data.wallet;
   }
   const displayBalance = calculateWalletBalance(transactions || []);
-  return { displayBalance, withdrawn: 0, accruals: 0, bonuses: 0, income: 0 };
+  return { displayBalance, withdrawn: 0, accruals: 0, bonuses: 0, income: 0, todayDailyIncome: 0 };
 }
 
 // Use API_BASE from window (set by auth.js) - don't redeclare, just reference
@@ -1103,8 +1103,10 @@ async function loadDailyCheckSection() {
           body: JSON.stringify({ puzzleId: puzzle.id, path: selected })
         });
         if (typeof showAlert === 'function') {
-          showAlert(result.message || `K${Number(result.total || 0).toFixed(2)} added to your main balance`, 'Daily task puzzle');
+          showAlert(result.message || `K${Number(result.total || 0).toFixed(2)} added to your daily income and current balance`, 'Daily task puzzle');
         }
+        const meContent = document.getElementById('meContent');
+        if (meContent) meContent.dataset.loaded = 'false';
         loadDailyCheckSection();
       } catch (err) {
         claiming = false;
@@ -1746,7 +1748,9 @@ async function loadMeSection() {
       .reduce((sum, inv) => sum + (Number(inv?.deposit_amount) || 0), 0);
     const totalWithdrawn = Number(wallet.withdrawn != null ? wallet.withdrawn : 0);
     const totalBonuses = Number(wallet.bonuses != null ? wallet.bonuses : 0);
-    const dailyIncomeEarned = Number(wallet.accruals != null ? wallet.accruals : 0);
+    const dailyIncomeEarned = Number(
+      wallet.todayDailyIncome != null ? wallet.todayDailyIncome : (wallet.accruals != null ? wallet.accruals : 0)
+    );
     const totalProfit = Number(wallet.income != null ? wallet.income : dailyIncomeEarned + totalBonuses);
     const currentBalance = Number(wallet.displayBalance);
 
@@ -1802,7 +1806,7 @@ async function loadMeSection() {
         </div>
         <div class="stat-card">
           <div class="stat-value">K${dailyIncomeEarned.toFixed(2)}</div>
-          <div class="stat-label">Daily Income Earned</div>
+          <div class="stat-label">Daily Income</div>
         </div>
         <div class="stat-card">
           <div class="stat-value">K${totalWithdrawn.toFixed(2)}</div>

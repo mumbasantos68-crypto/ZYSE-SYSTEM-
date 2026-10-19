@@ -1776,6 +1776,24 @@ app.get('/api/dashboard', authenticateToken, async (req, res) => {
 
     const allTransactions = transactions || [];
     const wallet = summarizeWallet(allTransactions);
+    const today = getZambiaDate();
+    let todayLevelIncome = 0;
+    for (const t of allTransactions) {
+      if (!t || t.type !== 'accrual') continue;
+      const when = parseSqliteUtc(t.date);
+      if (when && getZambiaDate(when) === today) {
+        todayLevelIncome += Number(t.amount) || 0;
+      }
+    }
+    await ensureDailyCheckinsTable();
+    const todayCheckin = await dbGet(
+      'SELECT total_amount FROM daily_checkins WHERE user_id = ? AND check_date = ?',
+      [userId, today]
+    ).catch(() => null);
+    const todayQuizIncome = Number(todayCheckin && todayCheckin.total_amount) || 0;
+    wallet.todayLevelIncome = todayLevelIncome;
+    wallet.todayQuizIncome = todayQuizIncome;
+    wallet.todayDailyIncome = todayLevelIncome + todayQuizIncome;
     console.log(`Dashboard data: ${investments.length} investments, ${allTransactions.length} transactions, wallet ${wallet.displayBalance}`);
 
     res.json({
