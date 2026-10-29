@@ -93,7 +93,8 @@ function levelNumber(level) {
 }
 
 function getLevelBonus(level) {
-  return 2 + (levelNumber(level) - 1);
+  const n = levelNumber(level);
+  return n >= 6 ? 4 : 2;
 }
 
 function puzzleIndexForDate(dateStr) {

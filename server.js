@@ -8,7 +8,7 @@ const { authenticateToken, requireAdmin, getUserByEmail, getUserByPhone, getUser
 const { initializePayment, verifyPayment, generateReference } = require('./utils/payments');
 const { getZambiaDate, getPublicPuzzle, isValidPuzzleSelection, quoteAmounts, ensureDailyCheckinsTable, getDailyCheckEligibility, getWithdrawalWindow, parseSqliteUtc } = require('./utils/dailyCheckin');
 const { ensureCareerApplicationsTable, getRole, getCareerBoard } = require('./utils/careers');
-const { ensureTeamPayoutsTable, getTeamBoard, payDailyTeamBonuses } = require('./utils/team');
+const { ensureTeamPayoutsTable, getTeamBoard, onActiveInvestmentCreated } = require('./utils/team');
 const { calculateWalletBalance, summarizeWallet, creditTerminatedLevelLock, repairTerminatedLevelCredits } = require('./utils/wallet');
 const nodemailer = require('nodemailer');
 const { body, validationResult } = require('express-validator');
@@ -436,18 +436,7 @@ app.post('/api/register', [
       throw dbError; // Re-throw to be caught by outer catch
     }
 
-    const WELCOME_BONUS = 20;
-    try {
-      await dbRun(
-        'INSERT INTO transactions (user_id, type, amount, date) VALUES (?, ?, ?, datetime("now"))',
-        [result.lastID, 'bonus', WELCOME_BONUS]
-      );
-      console.log(`Welcome bonus K${WELCOME_BONUS} added for user ${result.lastID}`);
-    } catch (bonusErr) {
-      console.error('Welcome bonus failed:', bonusErr.message);
-    }
-
-    res.json({ message: 'Registration successful', userId: result.lastID, welcomeBonus: WELCOME_BONUS });
+    res.json({ message: 'Registration successful', userId: result.lastID, welcomeBonus: 0 });
   } catch (error) {
     console.error('Registration error:', error);
     console.error('Registration error details:', {
@@ -876,6 +865,8 @@ app.post('/api/invest', authenticateToken, [
       [userId, 'deposit', amount, investResult.lastID]
     );
 
+    await onActiveInvestmentCreated(userId);
+
     // Get user email
     const user = await getUserById(userId);
 
@@ -1012,6 +1003,8 @@ app.post('/api/invest-from-balance', authenticateToken, [
       [packageData.level, userId]
     );
 
+    await onActiveInvestmentCreated(userId);
+
     // Get user for email
     const user = await getUserById(userId);
 
@@ -1116,6 +1109,8 @@ app.post('/api/verify-transaction', authenticateToken, [
       'INSERT INTO transactions (user_id, type, amount, investment_id) VALUES (?, ?, ?, ?)',
       [userId, 'deposit', amount, investResult.lastID]
     );
+
+    await onActiveInvestmentCreated(userId);
 
     // Get user email
     const user = await getUserById(userId);
@@ -1320,6 +1315,8 @@ app.post('/api/paystack/webhook', async (req, res) => {
             'INSERT INTO transactions (user_id, type, amount, investment_id) VALUES (?, ?, ?, ?)',
             [userId, 'deposit', amount, investResult.lastID]
           );
+
+          await onActiveInvestmentCreated(userId);
 
           // Get user email
           const user = await getUserById(userId);
@@ -3161,9 +3158,6 @@ cron.schedule('0 0 * * *', async () => {
     }
 
     console.log(`Processed ${investments.length} investments`);
-
-    const teamPay = await payDailyTeamBonuses();
-    console.log(`Team bonuses paid: ${teamPay.paid} on ${teamPay.payoutDate}`);
   } catch (error) {
     console.error('Accrual job error:', error);
   }

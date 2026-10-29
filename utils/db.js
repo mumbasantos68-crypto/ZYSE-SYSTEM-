@@ -282,6 +282,7 @@ function initializeTables(db, resolve, reject) {
           db.run(`ALTER TABLE users ADD COLUMN profile_picture TEXT`, () => {});
           db.run(`ALTER TABLE users ADD COLUMN last_withdrawal_date DATE`, () => {});
           db.run(`ALTER TABLE users ADD COLUMN invited_by_user_id INTEGER`, () => {});
+          db.run(`ALTER TABLE users ADD COLUMN welcome_bonus_paid INTEGER DEFAULT 0`, () => {});
           
           // Create unique index on phone for existing databases (if it doesn't exist)
           db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone ON users(phone)`, (err) => {

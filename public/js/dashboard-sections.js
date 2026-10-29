@@ -631,7 +631,7 @@ async function loadHomeSection() {
         <button type="button" class="home-action" onclick="showSection('team')">
           <span class="home-action-icon">☺</span>
           <strong>My team</strong>
-          <span>Invites who invested. Earn 5% daily</span>
+          <span>Invites who invested. Earn 5% once</span>
         </button>
         <button type="button" class="home-action" onclick="showSection('careers')">
           <span class="home-action-icon">★</span>
@@ -1041,7 +1041,7 @@ async function loadDailyCheckSection() {
       <div class="daily-check-card">
         <p class="daily-check-kicker">Daily task puzzle · ${escapeDailyHtml(data.checkDate || '')}</p>
         <h2>${escapeDailyHtml(puzzle.hint || 'Select only the balls of one colour')}</h2>
-        <p>Tap every ball that matches the colour asked. Red, blue and green take turns each day. L1 earns <strong>K2.00</strong>, then <strong>K1.00</strong> more on each higher level.</p>
+        <p>Tap every ball that matches the colour asked. Red, blue and green take turns each day. Levels L1–L5 earn <strong>K2.00</strong>. Levels L6–L10 earn <strong>K4.00</strong>.</p>
         <div class="daily-check-payout">
           <div><span>Your level</span><strong>${escapeDailyHtml(data.level || 'L1')}</strong></div>
           <div class="daily-check-total"><span>Today if you finish</span><strong>K${total}</strong></div>
@@ -1186,10 +1186,10 @@ async function loadTeamSection() {
           </div>
           <div class="stat-card">
             <div class="stat-value">K${dailyTotal.toFixed(2)}</div>
-            <div class="stat-label">Your 5% daily total</div>
+            <div class="stat-label">Your 5% once</div>
           </div>
         </div>
-        <p class="team-copy">People who used your invite link and invested. You earn 5% of each person's level every day at 00:00, added to your main balance.</p>
+        <p class="team-copy">People who used your invite link and invested. You earn 5% of that person's level once, when they invest. It is not paid every day.</p>
         <div class="admin-scroll-table">
           <table class="table admin-deposits-table">
             <thead>
@@ -1199,7 +1199,7 @@ async function loadTeamSection() {
                 <th>Phone</th>
                 <th>Level</th>
                 <th>Level amount</th>
-                <th>Your 5% / day</th>
+                <th>Your 5% once</th>
               </tr>
             </thead>
             <tbody>${rows}</tbody>
@@ -1928,7 +1928,7 @@ async function loadMeSection() {
           Invite Friends & Earn
         </h3>
         <p style="margin-bottom: 20px; line-height: 1.6;">
-          Share your referral link with friends and family. When they join using your link, they'll be automatically linked to your account!
+          Share your referral link. When someone joins with your link and invests, you earn 5% of their level once.
         </p>
         ${profileData.phone ? `
           <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 8px; margin-bottom: 15px;">

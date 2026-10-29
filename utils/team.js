@@ -58,63 +58,111 @@ async function listActiveTeamMembers(inviterId) {
 async function getTeamBoard(userId) {
   await ensureTeamPayoutsTable();
   const members = await listActiveTeamMembers(userId);
-  const dailyTotal = members.reduce((sum, member) => sum + member.dailyBonus, 0);
+  const onceTotal = members.reduce((sum, member) => sum + member.dailyBonus, 0);
   return {
     count: members.length,
     rate: TEAM_RATE,
-    dailyTotal: Math.round(dailyTotal * 100) / 100,
+    dailyTotal: Math.round(onceTotal * 100) / 100,
+    onceTotal: Math.round(onceTotal * 100) / 100,
     members
   };
 }
 
-async function payDailyTeamBonuses() {
+async function payInviteBonusOnce(inviteeId) {
   await ensureTeamPayoutsTable();
-  const payoutDate = getZambiaDate();
-  const rows = await dbQuery(
-    `SELECT
-        u.id as invitee_id,
-        u.invited_by_user_id as inviter_id,
-        p.level,
-        p.amount as package_amount,
-        i.id as investment_id
-     FROM investments i
-     INNER JOIN users u ON u.id = i.user_id
-     INNER JOIN packages p ON p.id = i.package_id
-     WHERE i.status = 'active'
-       AND u.invited_by_user_id IS NOT NULL`
+  const invitee = await dbGet(
+    'SELECT id, invited_by_user_id FROM users WHERE id = ?',
+    [inviteeId]
   );
+  const inviterId = Number(invitee && invitee.invited_by_user_id);
+  if (!inviterId || inviterId === Number(inviteeId)) return false;
 
-  let paid = 0;
-  const paidInvitees = new Set();
-  for (const row of rows || []) {
-    const inviterId = Number(row.inviter_id);
-    const inviteeId = Number(row.invitee_id);
-    if (!inviterId || !inviteeId || inviterId === inviteeId) continue;
-    if (paidInvitees.has(inviteeId)) continue;
-    paidInvitees.add(inviteeId);
+  const alreadyPaid = await dbGet(
+    'SELECT id FROM team_payouts WHERE inviter_id = ? AND invitee_id = ? LIMIT 1',
+    [inviterId, inviteeId]
+  );
+  if (alreadyPaid) return false;
 
-    const amount = teamBonusForLevel(row.package_amount);
-    if (amount <= 0) continue;
+  const investment = await dbGet(
+    `SELECT p.level, p.amount as package_amount
+     FROM investments i
+     INNER JOIN packages p ON p.id = i.package_id
+     WHERE i.user_id = ? AND i.status = 'active'
+     ORDER BY i.created_at DESC, i.id DESC
+     LIMIT 1`,
+    [inviteeId]
+  );
+  if (!investment) return false;
 
-    const insert = await dbRun(
-      `INSERT OR IGNORE INTO team_payouts (inviter_id, invitee_id, amount, level, payout_date)
-       VALUES (?, ?, ?, ?, ?)`,
-      [inviterId, inviteeId, amount, row.level || null, payoutDate]
-    );
-    if (!insert.changes) continue;
+  const amount = teamBonusForLevel(investment.package_amount);
+  if (amount <= 0) return false;
 
-    await dbRun(
-      'INSERT INTO transactions (user_id, type, amount, date) VALUES (?, ?, ?, datetime("now"))',
-      [inviterId, 'bonus', amount]
-    );
-    paid += 1;
+  const insert = await dbRun(
+    `INSERT OR IGNORE INTO team_payouts (inviter_id, invitee_id, amount, level, payout_date)
+     VALUES (?, ?, ?, ?, ?)`,
+    [inviterId, inviteeId, amount, investment.level || null, 'once']
+  );
+  if (!insert.changes) return false;
+
+  await dbRun(
+    'INSERT INTO transactions (user_id, type, amount, date) VALUES (?, ?, ?, datetime("now"))',
+    [inviterId, 'bonus', amount]
+  );
+  return true;
+}
+
+const WELCOME_BONUS = 15;
+
+async function creditWelcomeBonusOnInvest(userId) {
+  const user = await dbGet('SELECT welcome_bonus_paid FROM users WHERE id = ?', [userId]);
+  if (user && Number(user.welcome_bonus_paid) === 1) return false;
+
+  const investCount = await dbGet(
+    `SELECT COUNT(*) as n FROM investments WHERE user_id = ? AND status IN ('active', 'terminated')`,
+    [userId]
+  );
+  if (Number(investCount && investCount.n) !== 1) return false;
+
+  const oldRegisterBonus = await dbGet(
+    `SELECT id FROM transactions WHERE user_id = ? AND type = 'bonus' AND amount = 20 LIMIT 1`,
+    [userId]
+  );
+  if (oldRegisterBonus) {
+    await dbRun('UPDATE users SET welcome_bonus_paid = 1 WHERE id = ?', [userId]);
+    return false;
   }
-  return { payoutDate, paid };
+
+  await dbRun(
+    'INSERT INTO transactions (user_id, type, amount, date) VALUES (?, ?, ?, datetime("now"))',
+    [userId, 'bonus', WELCOME_BONUS]
+  );
+  await dbRun('UPDATE users SET welcome_bonus_paid = 1 WHERE id = ?', [userId]);
+  return true;
+}
+
+async function onActiveInvestmentCreated(userId) {
+  const welcome = await creditWelcomeBonusOnInvest(userId).catch((err) => {
+    console.error('Welcome bonus on invest failed:', err.message);
+    return false;
+  });
+  const invite = await payInviteBonusOnce(userId).catch((err) => {
+    console.error('Invite bonus on invest failed:', err.message);
+    return false;
+  });
+  return { welcome, invite };
+}
+
+async function payDailyTeamBonuses() {
+  return { payoutDate: getZambiaDate(), paid: 0 };
 }
 
 module.exports = {
   TEAM_RATE,
+  WELCOME_BONUS,
   ensureTeamPayoutsTable,
   getTeamBoard,
+  payInviteBonusOnce,
+  creditWelcomeBonusOnInvest,
+  onActiveInvestmentCreated,
   payDailyTeamBonuses
 };
