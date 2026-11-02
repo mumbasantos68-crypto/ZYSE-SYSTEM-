@@ -1016,6 +1016,18 @@ async function loadDailyCheckSection() {
       return;
     }
 
+    if (data.earning === false) {
+      dailyContent.innerHTML = `
+        <div class="daily-check-card">
+          <p class="daily-check-kicker">Daily task puzzle</p>
+          <h2>Off day — no earnings</h2>
+          <p>${escapeDailyHtml(data.earningMessage || 'No earnings on Saturday, Sunday, or Zambia public holidays. Money is earned Monday to Friday only.')}</p>
+        </div>
+      `;
+      dailyContent.dataset.loaded = 'true';
+      return;
+    }
+
     if (data.claimed) {
       dailyContent.innerHTML = `
         <div class="daily-check-card">

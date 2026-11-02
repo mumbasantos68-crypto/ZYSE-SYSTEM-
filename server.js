@@ -6,7 +6,7 @@ const cron = require('node-cron');
 const { initDB, dbQuery, dbRun, dbGet, dbTransaction } = require('./utils/db');
 const { authenticateToken, requireAdmin, getUserByEmail, getUserByPhone, getUserById, getRequestUser, hashPassword, comparePassword, generateToken, normalizeZambianPhone, isConfiguredAdminUser } = require('./utils/auth');
 const { initializePayment, verifyPayment, generateReference } = require('./utils/payments');
-const { getZambiaDate, getPublicPuzzle, isValidPuzzleSelection, quoteAmounts, ensureDailyCheckinsTable, getDailyCheckEligibility, getWithdrawalWindow, parseSqliteUtc } = require('./utils/dailyCheckin');
+const { getZambiaDate, getPublicPuzzle, isValidPuzzleSelection, quoteAmounts, ensureDailyCheckinsTable, getDailyCheckEligibility, getWithdrawalWindow, parseSqliteUtc, getEarningDayState } = require('./utils/dailyCheckin');
 const { ensureCareerApplicationsTable, getRole, getCareerBoard } = require('./utils/careers');
 const { ensureTeamPayoutsTable, getTeamBoard, onActiveInvestmentCreated } = require('./utils/team');
 const { calculateWalletBalance, summarizeWallet, creditTerminatedLevelLock, repairTerminatedLevelCredits } = require('./utils/wallet');
@@ -605,16 +605,19 @@ app.get('/api/daily-check', authenticateToken, async (req, res) => {
       [userId, checkDate]
     );
     const amounts = quoteAmounts(access.level);
+    const earningDay = getEarningDayState();
     res.json({
       checkDate,
       unlocked: true,
       claimed: !!existing,
+      earning: earningDay.earning,
+      earningMessage: earningDay.message,
       level: access.level,
       levelBonus: amounts.levelBonus,
       completeBonus: amounts.completeBonus,
       total: amounts.total,
       claimedTotal: existing ? existing.total_amount : null,
-      puzzle: existing ? null : getPublicPuzzle(checkDate)
+      puzzle: existing || !earningDay.earning ? null : getPublicPuzzle(checkDate)
     });
   } catch (error) {
     console.error('Daily check status error:', error);
@@ -635,6 +638,10 @@ app.post('/api/daily-check', authenticateToken, async (req, res) => {
     const access = await getDailyCheckEligibility(userId);
     if (!access.unlocked) {
       return res.status(403).json({ error: 'Invest in a level first to unlock Daily task puzzle' });
+    }
+    const earningDay = getEarningDayState();
+    if (!earningDay.earning) {
+      return res.status(400).json({ error: earningDay.message });
     }
     const existing = await dbGet(
       'SELECT id FROM daily_checkins WHERE user_id = ? AND check_date = ?',
@@ -3136,6 +3143,11 @@ app.delete('/api/admin/announcements/:id', authenticateToken, requireAdmin, asyn
 cron.schedule('0 0 * * *', async () => {
   console.log('Running daily accrual job (00:00 Africa/Lusaka)...');
   try {
+    const earningDay = getEarningDayState();
+    if (!earningDay.earning) {
+      console.log(`Skipping daily accruals: ${earningDay.message}`);
+      return;
+    }
     const investments = await dbQuery(
       `SELECT i.*, p.daily_rate
        FROM investments i
