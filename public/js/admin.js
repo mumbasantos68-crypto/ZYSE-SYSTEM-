@@ -48,14 +48,15 @@ async function loadAdminData() {
 
   try {
     // Load all data in parallel
-    const [usersResponse, investmentsResponse, statsResponse, withdrawalRequestsResponse, depositsResponse, announcementsResponse, careersResponse] = await Promise.all([
+    const [usersResponse, investmentsResponse, statsResponse, withdrawalRequestsResponse, depositsResponse, announcementsResponse, careersResponse, activeInvestorsResponse] = await Promise.all([
       fetch(`${API_BASE}/api/admin/users`, { headers: getAuthHeaders() }),
       fetch(`${API_BASE}/api/admin/investments`, { headers: getAuthHeaders() }),
       fetch(`${API_BASE}/api/admin/stats`, { headers: getAuthHeaders() }),
       fetch(`${API_BASE}/api/admin/withdrawal-requests`, { headers: getAuthHeaders() }),
       fetch(`${API_BASE}/api/admin/deposits`, { headers: getAuthHeaders() }),
       fetch(`${API_BASE}/api/admin/announcements`, { headers: getAuthHeaders() }),
-      fetch(`${API_BASE}/api/admin/careers`, { headers: getAuthHeaders() })
+      fetch(`${API_BASE}/api/admin/careers`, { headers: getAuthHeaders() }),
+      fetch(`${API_BASE}/api/admin/active-investors`, { headers: getAuthHeaders() })
     ]);
 
     // Auth guard
@@ -80,8 +81,9 @@ async function loadAdminData() {
     const deposits = depositsResponse.ok ? await depositsResponse.json() : [];
     const announcements = announcementsResponse.ok ? await announcementsResponse.json() : [];
     const careerApplications = careersResponse && careersResponse.ok ? await careersResponse.json() : [];
+    const activeInvestors = activeInvestorsResponse && activeInvestorsResponse.ok ? await activeInvestorsResponse.json() : [];
 
-    renderAdminDashboard(users, investments, stats, withdrawalRequests, deposits, announcements, careerApplications);
+    renderAdminDashboard(users, investments, stats, withdrawalRequests, deposits, announcements, careerApplications, activeInvestors);
   } catch (error) {
     console.error('Admin error:', error);
     adminContent.innerHTML = `
@@ -157,8 +159,51 @@ function showAdminTab(tab) {
   });
 }
 
+function renderActiveInvestorsTable(investors) {
+  if (!investors || investors.length === 0) {
+    return '<p class="empty-state">No users currently on an active investment.</p>';
+  }
+
+  return `
+    <div class="admin-scroll-table">
+    <table class="table admin-users-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Name</th>
+          <th>Phone</th>
+          <th>Level</th>
+          <th>Invested</th>
+          <th>Earned</th>
+          <th>Remaining to initial</th>
+          <th>Started</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${investors.map((row, index) => {
+          const remaining = Number(row.remainingToInitial) || 0;
+          const recovered = remaining <= 0;
+          return `
+            <tr>
+              <td>${index + 1}</td>
+              <td class="admin-cell-name" title="${String(row.fullName || '').replace(/"/g, '&quot;')}">${row.fullName || '—'}</td>
+              <td class="admin-cell-strong">${row.phone || '—'}</td>
+              <td>${row.level || '—'}</td>
+              <td>K${Number(row.initialInvestment || 0).toFixed(2)}</td>
+              <td>K${Number(row.earned || 0).toFixed(2)}</td>
+              <td class="admin-cell-strong">${recovered ? 'K0.00 recovered' : `K${remaining.toFixed(2)}`}</td>
+              <td class="admin-cell-date">${row.startDate ? formatDate(row.startDate) : '—'}</td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+    </div>
+  `;
+}
+
 // Render admin dashboard
-function renderAdminDashboard(users, investments, stats, withdrawalRequests, deposits, announcements, careerApplications) {
+function renderAdminDashboard(users, investments, stats, withdrawalRequests, deposits, announcements, careerApplications, activeInvestors) {
   const adminContent = document.getElementById('adminContent');
   
   // Sort users: Admin first (is_admin = 1), then by creation date (newest first)
@@ -269,6 +314,7 @@ function renderAdminDashboard(users, investments, stats, withdrawalRequests, dep
       <button type="button" class="admin-tab-btn active" data-tab="approvals" onclick="showAdminTab('approvals')">Approvals</button>
       <button type="button" class="admin-tab-btn" data-tab="users" onclick="showAdminTab('users')">Users</button>
       <button type="button" class="admin-tab-btn" data-tab="investments" onclick="showAdminTab('investments')">Investments</button>
+      <button type="button" class="admin-tab-btn" data-tab="active-investors" onclick="showAdminTab('active-investors')">Active investors</button>
       <button type="button" class="admin-tab-btn" data-tab="careers" onclick="showAdminTab('careers')">Career opportunity</button>
     </div>
 
@@ -328,6 +374,15 @@ function renderAdminDashboard(users, investments, stats, withdrawalRequests, dep
       <div class="card-header">All investments (${investments.length})</div>
       <div class="table-wrap">
       ${investmentsHTML}
+      </div>
+    </div>
+    </div>
+
+    <div class="admin-tab-panel" data-tab="active-investors" hidden>
+    <div class="card">
+      <div class="card-header">Active investors (${(activeInvestors || []).length}) — remaining to recover initial investment</div>
+      <div class="table-wrap">
+      ${renderActiveInvestorsTable(activeInvestors || [])}
       </div>
     </div>
     </div>

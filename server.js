@@ -2086,6 +2086,59 @@ app.get('/api/admin/investments', authenticateToken, requireAdmin, async (req, r
   }
 });
 
+// Unique users currently on an active level, with remaining amount to recover their initial investment
+app.get('/api/admin/active-investors', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const rows = await dbQuery(
+      `SELECT
+          i.id as investment_id,
+          i.user_id,
+          u.full_name,
+          u.phone,
+          u.email,
+          u.level,
+          p.level as package_level,
+          i.deposit_amount,
+          i.total_accruals,
+          i.start_date
+       FROM investments i
+       JOIN users u ON i.user_id = u.id
+       JOIN packages p ON i.package_id = p.id
+       WHERE i.status = 'active'
+         AND i.id = (
+           SELECT MAX(i2.id)
+           FROM investments i2
+           WHERE i2.user_id = i.user_id AND i2.status = 'active'
+         )
+       ORDER BY i.created_at DESC`
+    );
+
+    const investors = (rows || []).map((row) => {
+      const initialInvestment = Number(row.deposit_amount) || 0;
+      const earned = Number(row.total_accruals) || 0;
+      const remainingToInitial = Math.max(0, +(initialInvestment - earned).toFixed(2));
+      return {
+        userId: row.user_id,
+        fullName: row.full_name,
+        phone: row.phone,
+        email: row.email,
+        level: row.level || row.package_level || '—',
+        investmentId: row.investment_id,
+        initialInvestment,
+        earned,
+        remainingToInitial,
+        recovered: remainingToInitial <= 0,
+        startDate: row.start_date
+      };
+    });
+
+    res.json(investors);
+  } catch (error) {
+    console.error('Get active investors error:', error);
+    res.status(500).json({ error: 'Failed to fetch active investors' });
+  }
+});
+
 // Get all deposits (investments with transaction TXT)
 app.get('/api/admin/deposits', authenticateToken, requireAdmin, async (req, res) => {
   try {
