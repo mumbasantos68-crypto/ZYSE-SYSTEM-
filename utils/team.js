@@ -111,7 +111,7 @@ async function payInviteBonusOnce(inviteeId) {
   return true;
 }
 
-const WELCOME_BONUS = 15;
+const WELCOME_BONUS = 10;
 
 async function creditWelcomeBonusOnInvest(userId) {
   const user = await dbGet('SELECT welcome_bonus_paid FROM users WHERE id = ?', [userId]);

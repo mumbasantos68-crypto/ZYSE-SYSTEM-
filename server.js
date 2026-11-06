@@ -2016,6 +2016,89 @@ app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) =>
   }
 });
 
+function moneyTrailSummary(transactions) {
+  const wallet = summarizeWallet(transactions);
+  const byType = {};
+  for (const t of transactions || []) {
+    const type = t && t.type ? String(t.type) : 'unknown';
+    if (!byType[type]) byType[type] = { count: 0, total: 0 };
+    byType[type].count += 1;
+    byType[type].total += Number(t.amount) || 0;
+  }
+  return { wallet, byType };
+}
+
+app.get('/api/admin/account-ledger/:userId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId, 10);
+    if (!Number.isFinite(userId)) {
+      return res.status(400).json({ error: 'Invalid user' });
+    }
+    const user = await dbGet(
+      `SELECT u.id, u.full_name, u.phone, u.email, u.level, u.created_at, u.welcome_bonus_paid,
+              u.invited_by_user_id, inviter.phone as invited_by_phone
+       FROM users u
+       LEFT JOIN users inviter ON u.invited_by_user_id = inviter.id
+       WHERE u.id = ?`,
+      [userId]
+    );
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    await ensureDailyCheckinsTable();
+    await ensureTeamPayoutsTable();
+    const [investments, transactions, checkins, inviteBonusesPaid, inviteBonusReceived] = await Promise.all([
+      dbQuery(
+        `SELECT i.id, i.status, i.deposit_amount, i.total_accruals, i.start_date, i.created_at,
+                p.level, p.daily_income, p.amount as package_amount
+         FROM investments i
+         JOIN packages p ON i.package_id = p.id
+         WHERE i.user_id = ?
+         ORDER BY i.created_at DESC`,
+        [userId]
+      ),
+      dbQuery(
+        'SELECT id, type, amount, date, investment_id FROM transactions WHERE user_id = ? ORDER BY datetime(date) DESC, id DESC',
+        [userId]
+      ),
+      dbQuery(
+        'SELECT check_date, level, total_amount FROM daily_checkins WHERE user_id = ? ORDER BY check_date DESC',
+        [userId]
+      ),
+      dbQuery(
+        `SELECT tp.amount, tp.level, tp.payout_date, tp.created_at, u.phone as invitee_phone
+         FROM team_payouts tp
+         JOIN users u ON u.id = tp.invitee_id
+         WHERE tp.inviter_id = ?
+         ORDER BY tp.created_at DESC`,
+        [userId]
+      ),
+      dbQuery(
+        `SELECT tp.amount, tp.level, tp.payout_date, tp.created_at, u.phone as inviter_phone
+         FROM team_payouts tp
+         JOIN users u ON u.id = tp.inviter_id
+         WHERE tp.invitee_id = ?
+         ORDER BY tp.created_at DESC`,
+        [userId]
+      )
+    ]);
+    const summary = moneyTrailSummary(transactions);
+    res.json({
+      user,
+      investments: investments || [],
+      transactions: transactions || [],
+      checkins: checkins || [],
+      inviteBonusesPaid: inviteBonusesPaid || [],
+      inviteBonusReceived: inviteBonusReceived || [],
+      wallet: summary.wallet,
+      byType: summary.byType
+    });
+  } catch (error) {
+    console.error('Account ledger error:', error);
+    res.status(500).json({ error: 'Failed to load account ledger' });
+  }
+});
+
 // Reset user password (admin only)
 app.post('/api/admin/users/:userId/reset-password', authenticateToken, requireAdmin, async (req, res) => {
   try {
@@ -3201,15 +3284,44 @@ cron.schedule('0 0 * * *', async () => {
       console.log(`Skipping daily accruals: ${earningDay.message}`);
       return;
     }
+    const today = getZambiaDate();
     const investments = await dbQuery(
-      `SELECT i.*, p.daily_rate
+      `SELECT i.*, p.daily_rate, p.daily_income
        FROM investments i
        JOIN packages p ON i.package_id = p.id
-       WHERE i.status = 'active'`
+       WHERE i.status = 'active'
+         AND i.id = (
+           SELECT MAX(i2.id)
+           FROM investments i2
+           WHERE i2.user_id = i.user_id AND i2.status = 'active'
+         )`
     );
 
+    let paid = 0;
+    let skipped = 0;
     for (const investment of investments) {
-      const dailyAccrual = investment.deposit_amount * investment.daily_rate;
+      const already = await dbQuery(
+        `SELECT date FROM transactions
+         WHERE user_id = ? AND investment_id = ? AND type = 'accrual'`,
+        [investment.user_id, investment.id]
+      );
+      const paidToday = (already || []).some((row) => {
+        const when = parseSqliteUtc(row.date);
+        return when && getZambiaDate(when) === today;
+      });
+      if (paidToday) {
+        skipped += 1;
+        continue;
+      }
+
+      const packageDaily = Number(investment.daily_income);
+      const dailyAccrual = packageDaily > 0
+        ? packageDaily
+        : (Number(investment.deposit_amount) || 0) * (Number(investment.daily_rate) || 0);
+      if (!(dailyAccrual > 0)) {
+        skipped += 1;
+        continue;
+      }
 
       await dbRun(
         'UPDATE investments SET total_accruals = total_accruals + ? WHERE id = ?',
@@ -3220,9 +3332,10 @@ cron.schedule('0 0 * * *', async () => {
         'INSERT INTO transactions (user_id, type, amount, investment_id) VALUES (?, ?, ?, ?)',
         [investment.user_id, 'accrual', dailyAccrual, investment.id]
       );
+      paid += 1;
     }
 
-    console.log(`Processed ${investments.length} investments`);
+    console.log(`Processed ${paid} investments, skipped ${skipped} already paid today`);
   } catch (error) {
     console.error('Accrual job error:', error);
   }

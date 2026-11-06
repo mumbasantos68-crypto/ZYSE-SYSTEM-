@@ -137,6 +137,7 @@ function renderUsersTable(users) {
               <td>${user.is_admin ? '<span class="admin-role">Admin</span>' : 'Member'}</td>
               <td>
                 <div class="admin-row-actions">
+                  <button type="button" class="admin-chip" onclick="viewAccountLedger(${user.id})" title="See how money was added">Money</button>
                   <button type="button" class="admin-chip" onclick="resetUserPassword(${user.id}, '${safeName}', this)" title="Reset password">Reset</button>
                   ${!user.is_admin ? `<button type="button" class="admin-chip danger" onclick="deleteUser(${user.id}, '${safeName}')" title="Delete user">Delete</button>` : ''}
                 </div>
@@ -1231,6 +1232,7 @@ window.bulkDeleteDeposits = bulkDeleteDeposits;
 window.bulkDeleteWithdrawalRequests = bulkDeleteWithdrawalRequests;
 window.updateWithdrawalRequestsDeleteButton = updateWithdrawalRequestsDeleteButton;
 window.deleteUser = deleteUser;
+window.viewAccountLedger = viewAccountLedger;
 window.bulkDeleteAnnouncements = bulkDeleteAnnouncements;
 window.updateDeleteAnnouncementsButton = updateDeleteAnnouncementsButton;
 window.toggleAllAnnouncements = toggleAllAnnouncements;
@@ -1260,6 +1262,77 @@ async function updateInvestmentStatus(investmentId, status) {
 }
 
 // View investment details
+async function viewAccountLedger(userId) {
+  try {
+    const response = await fetch(`${API_BASE}/api/admin/account-ledger/${userId}`, { headers: getAuthHeaders() });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to load money trail');
+    }
+    const wallet = data.wallet || {};
+    const byType = data.byType || {};
+    const typeRows = Object.keys(byType).map((type) => {
+      const row = byType[type];
+      return `<tr><td>${type}</td><td>${row.count}</td><td>K${Number(row.total || 0).toFixed(2)}</td></tr>`;
+    }).join('') || '<tr><td colspan="3">None</td></tr>';
+    const investments = (data.investments || []).map((inv) => `
+      <tr>
+        <td>${inv.id}</td>
+        <td>${inv.level || '—'}</td>
+        <td>${inv.status}</td>
+        <td>K${Number(inv.deposit_amount || 0).toFixed(2)}</td>
+        <td>K${Number(inv.daily_income || 0).toFixed(2)}/day</td>
+        <td>K${Number(inv.total_accruals || 0).toFixed(2)}</td>
+        <td>${inv.start_date || '—'}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="7">No investments</td></tr>';
+    const txRows = (data.transactions || []).map((t) => `
+      <tr>
+        <td>${formatDateTime(t.date)}</td>
+        <td>${t.type}</td>
+        <td>K${Number(t.amount || 0).toFixed(2)}</td>
+        <td>${t.investment_id || '—'}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="4">No transactions</td></tr>';
+    const quizRows = (data.checkins || []).map((c) => `
+      <tr><td>${c.check_date}</td><td>${c.level || '—'}</td><td>K${Number(c.total_amount || 0).toFixed(2)}</td></tr>
+    `).join('') || '<tr><td colspan="3">No daily tasks</td></tr>';
+    const inviteRows = (data.inviteBonusesPaid || []).map((b) => `
+      <tr><td>${formatDateTime(b.created_at)}</td><td>${b.invitee_phone || '—'}</td><td>${b.level || '—'}</td><td>K${Number(b.amount || 0).toFixed(2)}</td></tr>
+    `).join('') || '<tr><td colspan="4">No invite bonuses received</td></tr>';
+    const existing = document.getElementById('accountLedgerModal');
+    if (existing) existing.remove();
+    const modal = document.createElement('div');
+    modal.id = 'accountLedgerModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;';
+    modal.innerHTML = `
+      <div style="background:#0b1628;color:#e2e8f0;border-radius:12px;max-width:920px;width:100%;max-height:92vh;overflow:auto;padding:20px;">
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;">
+          <div>
+            <h3 style="margin:0 0 6px;">Money trail</h3>
+            <p style="margin:0;">${data.user.full_name || '—'} · ${data.user.phone || '—'} · ${data.user.level || 'L0'} · joined ${formatDateTime(data.user.created_at)}</p>
+          </div>
+          <button type="button" class="btn btn-secondary" onclick="document.getElementById('accountLedgerModal').remove()">Close</button>
+        </div>
+        <p style="margin:12px 0;">Spendable K${Number(wallet.displayBalance || 0).toFixed(2)} · Accruals K${Number(wallet.accruals || 0).toFixed(2)} · Bonuses K${Number(wallet.bonuses || 0).toFixed(2)} · Deposits K${Number(wallet.deposits || 0).toFixed(2)} · Withdrawn K${Number(wallet.withdrawn || 0).toFixed(2)}</p>
+        <h4>By type</h4>
+        <div class="admin-scroll-table"><table class="table"><thead><tr><th>Type</th><th>Count</th><th>Total</th></tr></thead><tbody>${typeRows}</tbody></table></div>
+        <h4>Investments</h4>
+        <div class="admin-scroll-table"><table class="table"><thead><tr><th>ID</th><th>Level</th><th>Status</th><th>Invested</th><th>Daily</th><th>Earned</th><th>Start</th></tr></thead><tbody>${investments}</tbody></table></div>
+        <h4>Daily task</h4>
+        <div class="admin-scroll-table"><table class="table"><thead><tr><th>Date</th><th>Level</th><th>Paid</th></tr></thead><tbody>${quizRows}</tbody></table></div>
+        <h4>Invite bonuses this user received</h4>
+        <div class="admin-scroll-table"><table class="table"><thead><tr><th>When</th><th>From invitee</th><th>Level</th><th>Amount</th></tr></thead><tbody>${inviteRows}</tbody></table></div>
+        <h4>All transactions</h4>
+        <div class="admin-scroll-table"><table class="table"><thead><tr><th>When</th><th>Type</th><th>Amount</th><th>Investment</th></tr></thead><tbody>${txRows}</tbody></table></div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  } catch (error) {
+    showAlert(error.message, 'Money trail');
+  }
+}
+
 function viewInvestment(investmentId) {
   // Simple view - can be enhanced with modal
   showAlert(`Investment ID: ${investmentId}\nView full details in the table above.`, 'Investment Details');
