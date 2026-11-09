@@ -1,5 +1,3 @@
-const { dbRun, dbGet, dbQuery } = require('./db');
-
 function calculateWalletBalance(transactions) {
   const list = Array.isArray(transactions) ? transactions : [];
   let deposits = 0;
@@ -40,49 +38,7 @@ function summarizeWallet(transactions) {
   return { ...wallet, accruals, bonuses };
 }
 
-async function creditTerminatedLevelLock(investment) {
-  if (!investment || !investment.id || !investment.user_id) return false;
-  const amount = Number(investment.deposit_amount) || 0;
-  if (amount <= 0) return false;
-
-  const alreadyCredited = await dbGet(
-    `SELECT id FROM transactions
-     WHERE investment_id = ? AND type = 'investment' AND amount > 0`,
-    [investment.id]
-  );
-  if (alreadyCredited) return false;
-
-  const wasLocked = await dbGet(
-    `SELECT id FROM transactions
-     WHERE investment_id = ? AND type = 'investment' AND amount < 0`,
-    [investment.id]
-  );
-  if (!wasLocked) return false;
-
-  await dbRun(
-    `INSERT INTO transactions (user_id, type, amount, investment_id, date)
-     VALUES (?, ?, ?, ?, datetime('now'))`,
-    [investment.user_id, 'investment', amount, investment.id]
-  );
-  return true;
-}
-
-async function repairTerminatedLevelCredits() {
-  const rows = await dbQuery(
-    `SELECT id, user_id, deposit_amount
-     FROM investments
-     WHERE status = 'terminated'`
-  );
-  let credited = 0;
-  for (const row of rows || []) {
-    if (await creditTerminatedLevelLock(row)) credited += 1;
-  }
-  return credited;
-}
-
 module.exports = {
   calculateWalletBalance,
-  summarizeWallet,
-  creditTerminatedLevelLock,
-  repairTerminatedLevelCredits
+  summarizeWallet
 };

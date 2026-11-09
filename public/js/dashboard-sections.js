@@ -3432,8 +3432,7 @@ async function confirmInvestment(packageId, amount, level) {
     
     const transactions = dashboardData.transactions || [];
     const availableBalance = Number(dashboardWallet(dashboardData, transactions).displayBalance);
-    const unlockedFromCurrentLevel = isSwitching ? (Number(currentActiveInvestment.deposit_amount) || 0) : 0;
-    const spendableBalance = availableBalance + unlockedFromCurrentLevel;
+    const spendableBalance = availableBalance;
 
     if (spendableBalance < amount) {
       showAlert(`Insufficient balance. Your current spendable amount is K${spendableBalance.toFixed(2)}. Please deposit to get this level.`);
@@ -3450,7 +3449,7 @@ async function confirmInvestment(packageId, amount, level) {
         ${isSwitching ? `
           <div style="background: #fff3cd; border: 1px solid #ffc107; color: #856404; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
             <strong>⚠️ Level Switch Warning:</strong>
-            <p style="margin: 10px 0 0 0;">You are switching from <strong>${currentActiveLevel}</strong> to <strong>${level}</strong>. The money in ${currentActiveLevel} returns to your wallet first, then the new level is paid.</p>
+            <p style="margin: 10px 0 0 0;">You are upgrading from <strong>${currentActiveLevel}</strong> to <strong>${level}</strong>. ${currentActiveLevel} expires and that investment is not returned. You pay the full new level from your main balance and then earn on ${level} only.</p>
           </div>
         ` : ''}
         <div style="margin-bottom: 20px;">
@@ -3461,7 +3460,7 @@ async function confirmInvestment(packageId, amount, level) {
             ${isSwitching ? `
               <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
                 <span style="color: #6c757d;">Current Level:</span>
-                <strong style="color: #dc3545;">${currentActiveLevel} (money returns to wallet)</strong>
+                <strong style="color: #dc3545;">${currentActiveLevel} (expires, not refunded)</strong>
               </div>
             ` : ''}
             <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
@@ -3525,7 +3524,7 @@ async function processInvestment(packageId, amount) {
 
     // Show appropriate message based on whether it was a switch or new investment
     if (data.previousLevel) {
-      showAlert(`Level switched successfully! Your ${data.previousLevel} investment has been terminated. You are now on ${data.level}. Amount K${amount.toFixed(2)} has been deducted from your balance.`);
+      showAlert(`Level upgraded. ${data.previousLevel} has expired and is not refunded. You now earn on ${data.level}. K${amount.toFixed(2)} was deducted from your main balance.`);
     } else {
       showAlert(`Investment successful! You have been assigned to ${data.level}. Amount K${amount.toFixed(2)} has been deducted from your balance.`);
     }

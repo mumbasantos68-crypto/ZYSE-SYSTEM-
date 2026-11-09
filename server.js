@@ -9,7 +9,7 @@ const { initializePayment, verifyPayment, generateReference } = require('./utils
 const { getZambiaDate, getPublicPuzzle, isValidPuzzleSelection, quoteAmounts, ensureDailyCheckinsTable, getDailyCheckEligibility, getWithdrawalWindow, parseSqliteUtc, getEarningDayState } = require('./utils/dailyCheckin');
 const { ensureCareerApplicationsTable, getRole, getCareerBoard } = require('./utils/careers');
 const { ensureTeamPayoutsTable, getTeamBoard, onActiveInvestmentCreated } = require('./utils/team');
-const { calculateWalletBalance, summarizeWallet, creditTerminatedLevelLock, repairTerminatedLevelCredits } = require('./utils/wallet');
+const { calculateWalletBalance, summarizeWallet } = require('./utils/wallet');
 const nodemailer = require('nodemailer');
 const { body, validationResult } = require('express-validator');
 const multer = require('multer');
@@ -952,10 +952,7 @@ app.post('/api/invest-from-balance', authenticateToken, [
       `SELECT type, amount, investment_id, deleted FROM transactions WHERE user_id = ?`,
       [userId]
     );
-    let availableBalance = calculateWalletBalance(transactions).balance;
-    if (existingActiveInvestment) {
-      availableBalance += Number(existingActiveInvestment.deposit_amount) || 0;
-    }
+    const availableBalance = calculateWalletBalance(transactions).balance;
 
     // Check if user has sufficient balance
     if (availableBalance < amount) {
@@ -967,8 +964,7 @@ app.post('/api/invest-from-balance', authenticateToken, [
       });
     }
 
-    // If user has an existing active investment, terminate it before creating the new one
-    // This ensures user can only be on ONE level at a time
+    // If user has an existing active investment, expire it. The previous principal is not refunded.
     let previousLevel = null;
     if (existingActiveInvestment) {
       previousLevel = existingActiveInvestment.level;
@@ -977,13 +973,8 @@ app.post('/api/invest-from-balance', authenticateToken, [
         `UPDATE investments SET status = 'terminated', maturity_date = date('now') WHERE id = ?`,
         [existingActiveInvestment.id]
       );
-      await creditTerminatedLevelLock({
-        id: existingActiveInvestment.id,
-        user_id: userId,
-        deposit_amount: existingActiveInvestment.deposit_amount
-      });
 
-      console.log(`Terminated previous investment: User ${userId}, Previous Level ${previousLevel}, New Level ${packageData.level}. Principal returned to wallet.`);
+      console.log(`Expired previous investment: User ${userId}, Previous Level ${previousLevel}, New Level ${packageData.level}. Principal not refunded.`);
     }
 
     // Start transaction - deduct amount and create investment
@@ -1027,7 +1018,7 @@ app.post('/api/invest-from-balance', authenticateToken, [
         `Your investment of K${amount} in ${packageData.level} has been confirmed. ${switchMessage} The amount has been deducted from your account balance.`,
         `<h1>Investment Confirmed</h1>
          <p>Your investment of K${amount} in ${packageData.level} has been confirmed.</p>
-         ${previousLevel ? `<p><strong>Note:</strong> Your previous investment in ${previousLevel} has been terminated.</p>` : ''}
+         ${previousLevel ? `<p><strong>Note:</strong> ${previousLevel} has expired. That investment is not returned. You now earn on ${packageData.level}.</p>` : ''}
          <p>The amount has been deducted from your account balance.</p>
          <p>Your new level: ${packageData.level}</p>`
       ).catch(emailError => {
@@ -1039,7 +1030,7 @@ app.post('/api/invest-from-balance', authenticateToken, [
 
     res.json({
       message: previousLevel 
-        ? `Level switched successfully! Your ${previousLevel} investment has been terminated and you are now on ${packageData.level}.`
+        ? `Level upgraded. ${previousLevel} has expired. You now earn on ${packageData.level}.`
         : 'Investment created successfully. Amount deducted from your balance.',
       investmentId: investResult.lastID,
       level: packageData.level,
@@ -3347,14 +3338,6 @@ cron.schedule('0 0 * * *', async () => {
 
 // Start server only after database is initialized
 initDB().then(async () => {
-  try {
-    const credited = await repairTerminatedLevelCredits();
-    if (credited) {
-      console.log(`Returned locked money from ${credited} switched levels to wallets`);
-    }
-  } catch (repairErr) {
-    console.error('Terminated-level credit repair failed:', repairErr.message);
-  }
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
